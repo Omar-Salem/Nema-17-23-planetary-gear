@@ -1,4 +1,4 @@
-# Nema-17-planetary-gear
+# Nema-17/23-planetary-gear
 
 Parametric planetary gearbox, you can change gear ratio, number of planets, backlash, module, etc...
 
