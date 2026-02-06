@@ -98,7 +98,7 @@ Export component to project as `MotorInput`
 
 Close current design without saving
 
-Move `SunTemp` to trash
+_If you create another gearbox with a different gear ratio, `Sun` and `MotorInput` will stay the same, no need to regnerate them_
 
 In the same manner, open `PlanetModifier` and insert `PlanetTemp`
 ![](images/open%20Planet%20sktech%20and%20insert%20planet.png)
