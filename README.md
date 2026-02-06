@@ -151,7 +151,7 @@ Where r is `planet_radius` and R is `planets_distance_from_sun`
 
 But fusion cannot have trigonometric functions in params, so do this calculation externally before updating `n_planets`, make sure you compute $arcsign$ in _radians_
 
-You'll also need as much 4668K225 bearings as planets' count
+You'll also need as much 4668K225 bearings as planets' count, as well as 91390A100 screws
 
 ---
 
