@@ -119,7 +119,7 @@ Should end up with this
 
 Export to project as `Planet`, close current design without saving, move `PlanetTemp` to trash
 
-We have now have all the components, time to combine them
+We now have all the components, time to combine them
 
 ### Combine generated gears
 
