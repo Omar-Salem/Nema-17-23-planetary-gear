@@ -11,7 +11,7 @@ Parametric planetary gearbox, you can change gear ratio, number of planets, back
 
 ### Parts List
 * M3 heat inserts (L5 $\times$ 4.2mm OD) $\times$ 15
-* M3 hex screws
+* M3 hex bolts
     * 91290A120 (16mm)  $\times$ 3
     * 91290A113 (8mm)  $\times$ 4
     * 91390A100 (6mm headless)  $\times$ 6
@@ -151,7 +151,7 @@ Where r is `planet_radius` and R is `planets_distance_from_sun`
 
 But fusion cannot have trigonometric functions in params, so do this calculation externally before updating `n_planets`, make sure you compute $arcsign$ in _radians_
 
-You'll also need as much 4668K225 bearings as planets' count, as well as 91390A100 screws
+You'll also need as much 4668K225 bearings as planets' count, as well as 91390A100 bolts
 
 ---
 
