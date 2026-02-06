@@ -11,13 +11,13 @@ Parametric planetary gear box, you can change gear ratio, number of planets, bac
 
 ### Parts List
 * M3 hex screws
-    * 91290A120 (_16mm_)  $\times$ 3
-    * 91290A113 (_8mm_)  $\times$ 4
-* M3  heat inserts (_L5 $\times$ 4.2mm OD_) $\times$ 15
+    * 91290A120 (16mm)  $\times$ 3
+    * 91290A113 (8mm)  $\times$ 4
+* M3  heat inserts (L5 $\times$ 4.2mm OD) $\times$ 15
 * Bearings
-    * 4668K269 (_35mm $\times$ 47mm $\times$ 7mm_) $\times$ 1
-    * 2349K726 (_12mm $\times$ 21mm $\times$ 5mm_) $\times$ 2
-    * 2349K726 (_5mm $\times$ 11mm $\times$ 5mm_) $\times$ 6
+    * 4668K269 (35mm $\times$ 47mm $\times$ 7mm) $\times$ 1
+    * 2349K726 (12mm $\times$ 21mm $\times$ 5mm) $\times$ 2
+    * 2349K726 (5mm $\times$ 11mm $\times$ 5mm) $\times$ 6
 
 ### Caveats
 If you change a param in one generator, don't forget to change it in all others.
