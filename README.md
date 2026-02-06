@@ -197,3 +197,5 @@ Print 6 `Planet`s ($n_{stages} \times n_{planetsPerStage}$)
 Print 2 `SunTop`s (_1 per stage_)
 
 ![](images/fullprintplate.png)
+
+Print takes ~5 hours and ~100 gm of filament
