@@ -10,20 +10,21 @@ Parametric planetary gearbox, you can change gear ratio, number of planets, back
 [Fusion 360 Helical Gear Plus plugin](https://apps.autodesk.com/FUSION/en/Detail/Index?id=1259509007239787473&appLang=en&os=Mac)
 
 ### Parts List
-* M3 heat inserts (L5 $\times$ 4.2mm OD) $\times$ 15
+* M3 heat inserts (L5 $\times$ 4.2mm OD) $\times$ 18
 * M3 hex bolts
     * 91290A120 (16mm)  $\times$ 3
+    * 91290A115 (10mm headless)  $\times$ 6
     * 91290A111 (6mm)  $\times$ 4
-    * 91390A100 (6mm headless)  $\times$ 6
+    
 * Bearings
     * 4668K269 (35mm $\times$ 47mm $\times$ 7mm) $\times$ 1
     * 2349K726 (12mm $\times$ 21mm $\times$ 5mm) $\times$ 2
-    * 2349K726 (5mm $\times$ 11mm $\times$ 5mm) $\times$ 6
+    * 4668K225 (5mm $\times$ 11mm $\times$ 5mm) $\times$ 6
 
 ### Caveats
 If you change a param in one generator, don't forget to change it in all others.
 
-This violates DRY principle, I know, global params should be used, it's on my roadmap.
+This violates DRY principle, instead, global params should be used.
 
 [Global Parameters in Fusion 360 | Explained in 5 minutes](https://www.youtube.com/watch?v=VsqRV7JvBKc)
 
