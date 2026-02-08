@@ -1,6 +1,6 @@
 # Nema-17/23-planetary-gear
 
-Parametric planetary gearbox, you can change gear ratio, number of planets, backlash, module, etc...
+Parametric planetary gearbox, you can change gear ratio and backlash.
 
 ![](images/fully%20assembled.png)
 
@@ -16,7 +16,7 @@ Parametric planetary gearbox, you can change gear ratio, number of planets, back
     * 91290A120 (16mm)  $\times$ 3
     * 91290A115 (10mm headless)  $\times$ 6
     * 91290A111 (6mm)  $\times$ 4
-* Bearings
+* Deep groove ball bearings
     * 4668K269 (35mm $\times$ 47mm $\times$ 7mm) $\times$ 1
     * 2349K726 (12mm $\times$ 21mm $\times$ 5mm) $\times$ 2
     * 4668K225 (5mm $\times$ 11mm $\times$ 5mm) $\times$ 6
