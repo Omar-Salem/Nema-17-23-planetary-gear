@@ -47,11 +47,11 @@ pin_diameter_meter = 5.27 * 0.001
 ring_wall_thickness_meter = 8 * 0.001
 
 PLANETS_COUNT = 3
-MODULE_METER = 10.001
+MODULE_METER = 0.001
 PRESSURE_ANGLE_DEGREE = 20
 SF = 3
 
-PLA_STRENGTH = 10
+PLA_STRENGTH = 10e6  # 10 MPa = 10 N/mm² = 10e6 N/m²
 SIGMA_ALLOWED_MEGA_PASCAL = PLA_STRENGTH
 MAX_SIGMA_ALLOWED_MEGA_PASCAL = SIGMA_ALLOWED_MEGA_PASCAL / SF
 
@@ -71,7 +71,7 @@ class Gear:
         self.teeth_count = teeth_count
         self.face_width = face_width
         self.module = module
-        self.pitch_radius_meter = teeth_count / 2 * 0.001
+        self.pitch_radius_meter = (self.module * self.teeth_count) / 2
         self.effective_force = torque / self.pitch_radius_meter
 
     def passes_check(self, threshold):
@@ -108,16 +108,6 @@ class SecondaryGear(Gear):
         super().__init__(teeth_count, face_width, module, torque)
         self.effective_force = self.effective_force / PLANETS_COUNT
         self.radial_force = self.effective_force * math.tan(math.radians(PRESSURE_ANGLE_DEGREE))
-
-    @property
-    def pitch_radius_meter(self):
-        return self.pitch_radius_meter
-    @property
-    def effective_force(self):
-        return self.effective_force
-    @property
-    def face_width(self):
-        return self.face_width
     
 class Ring(SecondaryGear):
     def __init__(self, teeth_count, face_width, module, torque, thickness):
@@ -183,8 +173,7 @@ planet = SecondaryGear(planet_teeth_count, planet_face_width, MODULE_METER, inpu
 ring = Ring(ring_teeth_count, ring_face_width, MODULE_METER, input_torque_newton_meters, ring_wall_thickness_meter)
 
 pin = Pin(planet, pin_diameter_meter, 5 * 0.001)
-carrierArm = CarrierArm(input_torque_newton_meters, carrier_arm_width_meter, carrier_arm_thickness_meter,
-                        planet.pitch_radius_meter)
+carrierArm = CarrierArm(planet, carrier_arm_width_meter, carrier_arm_thickness_meter)
 
 components = [sun, planet, ring, pin, carrierArm]
 
