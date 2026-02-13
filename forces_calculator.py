@@ -186,11 +186,12 @@ class Ring(SecondaryGear):
 
 
 class Pin(Component):
-    def __init__(self, planet, diameter_mm, length_mm, fillet_radius_mm=0.5):
+    def __init__(self, planet, diameter_mm, length_mm, fillet_radius_mm=0.5, bolt_diameter_mm=None):
         self.planet = planet
         self.diameter_mm = diameter_mm
         self.length_mm = length_mm
         self.fillet_radius_mm = fillet_radius_mm
+        self.bolt_diameter_mm = bolt_diameter_mm
 
     def passes_check(self, threshold):
         return self._calculate_von_mises() < threshold and self._calculate_bearing() < threshold
@@ -235,9 +236,22 @@ class Pin(Component):
         return (force * length_m) / 2
 
     def _calculate_sigma(self, moment):
-        # Cantilever bending stress
-        d_m = self.diameter_mm * TO_METER
-        return 32 * moment / (math.pi * math.pow(d_m, 3))
+        """
+        Bending stress using combined inertia of pin + bolt if present.
+        """
+        d_pin_m = self.diameter_mm * TO_METER
+        I_pin = (math.pi * math.pow(d_pin_m, 4)) / 64
+
+        if self.bolt_diameter_mm:
+            d_bolt_m = self.bolt_diameter_mm * TO_METER
+            I_bolt = (math.pi * math.pow(d_bolt_m, 4)) / 64
+            I_eff = I_pin + I_bolt
+            c_max = max(d_pin_m, d_bolt_m) / 2
+        else:
+            I_eff = I_pin
+            c_max = d_pin_m / 2
+
+        return moment * c_max / I_eff
 
     def _get_kt(self):
         """
@@ -248,19 +262,20 @@ class Pin(Component):
         if r_d < 0.01: return 3.0  # Very sharp
         if r_d < 0.05: return 2.2  # Typical machined corner
         if r_d < 0.1:  return 1.7  # Small fillet
-        return 1.5                 # Generous fillet
+        return 1.5  # Generous fillet
 
     def _calculate_von_mises(self):
         moment = self._calculate_moment()
-        sigma_nominal = self._calculate_sigma(moment)
+        sigma_nominal = self._calculate_sigma(moment)  
         tau = self._calculate_shear()
-        
-        # Apply Kt to bending stress
+
+        # Apply Kt only to the pin (fillet), assume bolt is smooth and concentric
         kt = self._get_kt()
         sigma_max = sigma_nominal * kt
-        
-        # Combined stress at the fillet/root
+
+        # Von Mises combining bending + shear
         return math.sqrt(sigma_max**2 + 3 * (tau**2))
+
 
     def _calculate_bearing(self):
         """
