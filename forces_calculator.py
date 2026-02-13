@@ -194,8 +194,8 @@ class Pin(Component):
         Returns bending moment and shear for FEM.
         """
         tau_pin = self.planet.effective_force / (math.pi * self.diameter ** 2 / 4)
-        M_pin = self.calculate_moment()
-        sigma_bending = self.calculate_sigma(M_pin)
+        M_pin = self._calculate_moment()
+        sigma_bending = self._calculate_sigma(M_pin)
         return {
             "M_bending": M_pin,
             "sigma_bending": sigma_bending,
@@ -207,19 +207,19 @@ class Pin(Component):
         return self.planet.effective_force / (math.pi * math.pow(self.diameter, 2) / 4)
 
     def _calculate_bending(self):
-        moment = self.calculate_moment()
-        return self.calculate_sigma(moment)
+        moment = self._calculate_moment()
+        return self._calculate_sigma(moment)
 
-    def calculate_sigma(self, moment):
-        # σ_pin = 32·M_pin / (π·d_pin³)
-        return 32 * moment / (math.pi * math.pow(self.diameter, 3))
-
-    def calculate_moment(self):
+    def _calculate_moment(self):
         # M_pin = F_t,p · eccentricity
         eccentricity = (self.planet.face_width / 2) - (self.length / 2)
         eccentricity_clamped = max(0, eccentricity)
         moment = self.planet.effective_force * eccentricity_clamped
         return moment
+
+    def _calculate_sigma(self, moment):
+        # σ_pin = 32·M_pin / (π·d_pin³)
+        return 32 * moment / (math.pi * math.pow(self.diameter, 3))
 
     def _calculate_von_mises(self):
         sigma = self._calculate_bending()
@@ -247,8 +247,8 @@ class CarrierArm(Component):
         """
         Returns bending moment and torsion for FEM.
         """
-        M_bending = self.calculate_moment()
-        sigma_bending = self.calculate_sigma_bending(M_bending)
+        M_bending = self._calculate_moment()
+        sigma_bending = self._calculate_sigma_bending(M_bending)
         tau_torsion = (2 * self.carrier_hub_torque) / (
                     math.pi * self.planet.pitch_radius_meter ** 3)  # simple solid shaft
         return {
@@ -262,21 +262,20 @@ class CarrierArm(Component):
         return self.planet.effective_force / (self.width * self.thickness)
 
     def _calculate_bending(self):
-        M_arm = self.calculate_moment()
-        return self.calculate_sigma_bending(M_arm)
+        M_arm = self._calculate_moment()
+        return self._calculate_sigma_bending(M_arm)
 
-    def calculate_sigma_bending(self, M_arm):
+    def _calculate_moment(self):
+        # M_arm = F_t,p · r_p
+        return self.planet.effective_force * self.planet.pitch_radius_meter
+
+    def _calculate_sigma_bending(self, M_arm):
         # I = w·t³ / 12
         # c = t / 2
         # σ_arm = M_arm · c / I
         I = self.width * math.pow(self.thickness, 3) / 12
         c = self.thickness / 2
         return M_arm * c / I
-
-    def calculate_moment(self):
-        # M_arm = F_t,p · r_p
-        return self.planet.effective_force * self.planet.pitch_radius_meter
-
 
 class CarrierHub(Component):
     def __init__(self, output_torque, radius_meter):
