@@ -30,17 +30,15 @@ from abc import ABC, abstractmethod
 # Planet / ring: F_t_effective = F_t,p
 
 
-
 PLANETS_COUNT = 3
 MODULE_METER = 0.001
 PRESSURE_ANGLE_DEGREE = 20
 SF = 3
 LOAD_SHARING_FACTOR = 1.2
 
-
 input_torque_newton_meters = .4
 gear_ratio = 6
-output_torque=input_torque_newton_meters * gear_ratio
+output_torque = input_torque_newton_meters * gear_ratio
 
 sun_teeth_count = 12
 sun_face_width = 13.3 * 0.001
@@ -57,7 +55,7 @@ carrier_arm_thickness_meter = 3 * 0.001
 pin_diameter_meter = 5.27 * 0.001
 ring_wall_thickness_meter = 8 * 0.001
 
-carrier_hub_radius_meter= 35.1 * 0.001
+carrier_hub_radius_meter = 35.1 * 0.001
 
 PLA_STRENGTH = 10e6  # 10 MPa = 10 N/mm² = 10e6 N/m²
 SIGMA_ALLOWED_MEGA_PASCAL = PLA_STRENGTH
@@ -65,12 +63,12 @@ MAX_SIGMA_ALLOWED_MEGA_PASCAL = SIGMA_ALLOWED_MEGA_PASCAL / SF
 
 effective_force = (input_torque_newton_meters / sun_pitch_radius_meter) * LOAD_SHARING_FACTOR
 
+
 class Component:
     @abstractmethod
     def passes_check(self, threshold):
         # This method must be implemented by all subclasses
         pass
-
 
     @abstractmethod
     def get_name(self):
@@ -78,11 +76,12 @@ class Component:
         pass
 
     def get_fem_loads(self):
-        return{}
-    
+        return {}
+
     def display(self, threshold):
-        check= "✅" if self.passes_check(threshold) else "❌"
+        check = "✅" if self.passes_check(threshold) else "❌"
         print(f"{self.get_name()}:\tPass: {check}\Fem: {self.get_fem_loads()}\n")
+
 
 class Gear(Component):
     # Lewis form factor lookup for 20° full-depth involute external spur gears
@@ -104,13 +103,13 @@ class Gear(Component):
 
     def passes_check(self, threshold):
         return self._calculate_bending_stress() < threshold
-    
+
     def get_name(self):
         return "Sun"
 
     def _calculate_bending_stress(self):
         lewis_y = self._get_lewis_form_factor(self.teeth_count)
-        return self.effective_force / (self.face_width * MODULE_METER* lewis_y)
+        return self.effective_force / (self.face_width * MODULE_METER * lewis_y)
 
     def _get_lewis_form_factor(self, teeth):
         """
@@ -134,26 +133,28 @@ class Gear(Component):
         # fallback to nearest
         return self.EXTERNAL_LEWIS_20_TABLE[keys[-1] if teeth > keys[-1] else keys[0]]
 
+
 class SecondaryGear(Gear):
     def __init__(self, teeth_count, face_width, effective_force):
-        super().__init__(teeth_count, face_width,  effective_force)
+        super().__init__(teeth_count, face_width, effective_force)
         self.effective_force = self.effective_force / PLANETS_COUNT
 
     def get_name(self):
         return "Planet"
-    
+
+
 class Ring(SecondaryGear):
-    def __init__(self, teeth_count, face_width,  effective_force, thickness):
-        super().__init__(teeth_count, face_width,  effective_force)
+    def __init__(self, teeth_count, face_width, effective_force, thickness):
+        super().__init__(teeth_count, face_width, effective_force)
         self.thickness = thickness
         self.radial_force = self.effective_force * math.tan(math.radians(PRESSURE_ANGLE_DEGREE))
 
     def passes_check(self, threshold):
         return self._calculate_bending_stress() < threshold and self._calculate_ovalization() < threshold
-    
+
     def get_name(self):
         return "Ring"
-    
+
     def get_fem_loads(self):
         """
         Returns radial load and tooth load for FEM.
@@ -166,16 +167,15 @@ class Ring(SecondaryGear):
             "sigma_tooth": sigma_tooth
         }
 
-    
     def _calculate_bending_stress(self):
         y_ext = self._get_lewis_form_factor(self.teeth_count)
         y_internal = 1.3 * y_ext
         return self.effective_force / (self.face_width * MODULE_METER * y_internal)
 
-
     def _calculate_ovalization(self):
         # σ_ring ≈ (F_r,p · r_r) / (t_ring · b)
         return (self.radial_force * self.pitch_radius_meter) / (self.thickness * self.face_width)
+
 
 class Pin(Component):
     def __init__(self, planet, diameter, length):
@@ -184,18 +184,18 @@ class Pin(Component):
         self.length = length
 
     def passes_check(self, threshold):
-        return  self._calculate_von_mises() < threshold and self._calculate_bearing() < threshold
-    
+        return self._calculate_von_mises() < threshold and self._calculate_bearing() < threshold
+
     def get_name(self):
         return "Pin"
-    
+
     def get_fem_loads(self):
         """
         Returns bending moment and shear for FEM.
         """
-        tau_pin = self.planet.effective_force / (math.pi * self.diameter**2 / 4)
+        tau_pin = self.planet.effective_force / (math.pi * self.diameter ** 2 / 4)
         M_pin = self.calculate_moment()
-        sigma_bending= self.calculate_sigma(M_pin)
+        sigma_bending = self.calculate_sigma(M_pin)
         return {
             "M_bending": M_pin,
             "sigma_bending": sigma_bending,
@@ -220,17 +220,18 @@ class Pin(Component):
         eccentricity_clamped = max(0, eccentricity)
         moment = self.planet.effective_force * eccentricity_clamped
         return moment
-    
+
     def _calculate_von_mises(self):
         sigma = self._calculate_bending()
         tau = self._calculate_shear()
-        return math.sqrt(sigma**2 + 3*tau**2)
-    
+        return math.sqrt(sigma ** 2 + 3 * tau ** 2)
+
     def _calculate_bearing(self):
         return self.planet.effective_force / (self.diameter * self.length)
 
+
 class CarrierArm(Component):
-    def __init__(self, planet, width, thickness,carrier_hub_torque):
+    def __init__(self, planet, width, thickness, carrier_hub_torque):
         self.planet = planet
         self.width = width
         self.thickness = thickness
@@ -238,17 +239,18 @@ class CarrierArm(Component):
 
     def passes_check(self, threshold):
         return self._calculate_shear() < threshold and self._calculate_bending() < threshold
-    
+
     def get_name(self):
         return "CarrierArm"
-    
+
     def get_fem_loads(self):
         """
         Returns bending moment and torsion for FEM.
         """
         M_bending = self.calculate_moment()
         sigma_bending = self.calculate_sigma_bending(M_bending)
-        tau_torsion = (2 * self.carrier_hub_torque ) / (math.pi * self.planet.pitch_radius_meter**3)  # simple solid shaft
+        tau_torsion = (2 * self.carrier_hub_torque) / (
+                    math.pi * self.planet.pitch_radius_meter ** 3)  # simple solid shaft
         return {
             "M_bending": M_bending,
             "sigma_bending": sigma_bending,
@@ -275,6 +277,7 @@ class CarrierArm(Component):
         # M_arm = F_t,p · r_p
         return self.planet.effective_force * self.planet.pitch_radius_meter
 
+
 class CarrierHub(Component):
     def __init__(self, output_torque, radius_meter):
         self.output_torque = output_torque
@@ -282,23 +285,23 @@ class CarrierHub(Component):
 
     def passes_check(self, threshold):
         return self._calculate_shear() < threshold
-    
+
     def get_name(self):
         return "CarrierHub"
 
     def _calculate_shear(self):
-        return (2 * self.output_torque) / (math.pi * self.radius_meter**3)
+        return (2 * self.output_torque) / (math.pi * self.radius_meter ** 3)
 
 
-sun = Gear(sun_teeth_count, sun_face_width,  effective_force)
+sun = Gear(sun_teeth_count, sun_face_width, effective_force)
 planet = SecondaryGear(planet_teeth_count, planet_face_width, effective_force)
-ring = Ring(ring_teeth_count, ring_face_width,  effective_force, ring_wall_thickness_meter)
+ring = Ring(ring_teeth_count, ring_face_width, effective_force, ring_wall_thickness_meter)
 
 pin = Pin(planet, pin_diameter_meter, 5 * 0.001)
-carrierArm = CarrierArm(planet, carrier_arm_width_meter, carrier_arm_thickness_meter,output_torque)
-carrierHub=CarrierHub(output_torque, carrier_hub_radius_meter)
+carrierArm = CarrierArm(planet, carrier_arm_width_meter, carrier_arm_thickness_meter, output_torque)
+carrierHub = CarrierHub(output_torque, carrier_hub_radius_meter)
 
-components = [sun, planet, ring, pin, carrierArm,carrierHub]
+components = [sun, planet, ring, pin, carrierArm, carrierHub]
 
 for c in components:
     c.display(MAX_SIGMA_ALLOWED_MEGA_PASCAL)
