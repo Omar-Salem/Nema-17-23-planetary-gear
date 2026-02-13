@@ -78,7 +78,13 @@ class Component:
 
     def display(self, threshold):
         check = "✅" if self.passes_check(threshold) else "❌"
-        print(f"{self.get_name()}:\tPass: {check}\tFem: {self.get_fem_loads()}\n")
+        print(f"{self.get_name():<14} {check:^7} {self._format_fem():<40}")
+
+    def _format_fem(self):
+        fem_dict = self.get_fem_loads()
+        if not fem_dict:
+            return "-"
+        return ", ".join([f"{k}: {v:.2f}" for k, v in fem_dict.items()])
 
 
 class Gear(Component):
@@ -298,11 +304,12 @@ class Stage:
 
     def display(self):
         print(f"Stage {self.index} results:")
+        print(f"Component\tPass\tFem\n")
         for component in self.components:
             component.display(MAX_SIGMA_ALLOWED_MEGA_PASCAL)
 
     def check_passed(self):
-        return all([c.passes_check() for c in self.components])
+        return all([c.passes_check(MAX_SIGMA_ALLOWED_MEGA_PASCAL) for c in self.components])
 
 
 current_input_torque = input_torque_newton_meters
