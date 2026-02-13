@@ -40,6 +40,7 @@ LOAD_SHARING_FACTOR = 1.2
 
 input_torque_newton_meters = .4
 gear_ratio = 6
+output_torque=input_torque_newton_meters * gear_ratio
 
 sun_teeth_count = 12
 sun_face_width = 13.3 * 0.001
@@ -75,10 +76,13 @@ class Component:
     def get_name(self):
         # This method must be implemented by all subclasses
         pass
+
+    def get_fem_loads(self):
+        return{}
     
     def display(self, threshold):
         check= "✅" if self.passes_check(threshold) else "❌"
-        print(f"{self.get_name()}:\tPass: {check}\n")
+        print(f"{self.get_name()}:\tPass: {check}\Fem: {self.get_fem_loads()}\n")
 
 class Gear(Component):
     # Lewis form factor lookup for 20° full-depth involute external spur gears
@@ -226,10 +230,11 @@ class Pin(Component):
         return self.planet.effective_force / (self.diameter * self.length)
 
 class CarrierArm(Component):
-    def __init__(self, planet, width, thickness):
+    def __init__(self, planet, width, thickness,carrier_hub_torque):
         self.planet = planet
         self.width = width
         self.thickness = thickness
+        self.carrier_hub_torque = carrier_hub_torque
 
     def passes_check(self, threshold):
         return self._calculate_shear() < threshold and self._calculate_bending() < threshold
@@ -237,13 +242,13 @@ class CarrierArm(Component):
     def get_name(self):
         return "CarrierArm"
     
-    def get_fem_loads(self, carrier_hub_torque):
+    def get_fem_loads(self):
         """
         Returns bending moment and torsion for FEM.
         """
         M_bending = self.calculate_moment()
         sigma_bending = self.calculate_sigma_bending(M_bending)
-        tau_torsion = (2 * carrier_hub_torque) / (math.pi * self.planet.pitch_radius_meter**3)  # simple solid shaft
+        tau_torsion = (2 * self.carrier_hub_torque ) / (math.pi * self.planet.pitch_radius_meter**3)  # simple solid shaft
         return {
             "M_bending": M_bending,
             "sigma_bending": sigma_bending,
@@ -285,14 +290,13 @@ class CarrierHub(Component):
         return (2 * self.output_torque) / (math.pi * self.radius_meter**3)
 
 
-
 sun = Gear(sun_teeth_count, sun_face_width,  effective_force)
 planet = SecondaryGear(planet_teeth_count, planet_face_width, effective_force)
 ring = Ring(ring_teeth_count, ring_face_width,  effective_force, ring_wall_thickness_meter)
 
 pin = Pin(planet, pin_diameter_meter, 5 * 0.001)
-carrierArm = CarrierArm(planet, carrier_arm_width_meter, carrier_arm_thickness_meter)
-carrierHub=CarrierHub(input_torque_newton_meters * gear_ratio, carrier_hub_radius_meter)
+carrierArm = CarrierArm(planet, carrier_arm_width_meter, carrier_arm_thickness_meter,output_torque)
+carrierHub=CarrierHub(output_torque, carrier_hub_radius_meter)
 
 components = [sun, planet, ring, pin, carrierArm,carrierHub]
 
