@@ -80,7 +80,7 @@ class Component:
 
     def display(self, threshold):
         check = "✅" if self.passes_check(threshold) else "❌"
-        print(f"{self.get_name()}:\tPass: {check}\Fem: {self.get_fem_loads()}\n")
+        print(f"{self.get_name()}:\tPass: {check}\tFem: {self.get_fem_loads()}\n")
 
 
 class Gear(Component):
