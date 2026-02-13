@@ -309,6 +309,7 @@ class Stage:
         print(f"Component\tPass\tFem\n")
         for component in self.components:
             component.display(MAX_SIGMA_ALLOWED_MEGA_PASCAL)
+        print()
 
     def check_passed(self):
         return all([c.passes_check(MAX_SIGMA_ALLOWED_MEGA_PASCAL) for c in self.components])
@@ -342,8 +343,13 @@ for i in range(1, STAGES_COUNT + 1):
 
     # 7. Stop if any component fails
     if not stage.check_passed():
-        print(f"Stage {i} failed stress check.")
+        print(f"Stage {i} failed stress check ❌.")
         break
-
+    else:
+        if i == STAGES_COUNT:
+            print(f"All {STAGES_COUNT} stages passed successfully! ✅")
+        else:
+            print(f"Stage {i} passed stress check ✅. Moving to next stage...\n")
+            
     # 8. Prepare torque for next stage
     current_input_torque = stage_output_torque
