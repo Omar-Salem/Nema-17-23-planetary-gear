@@ -50,10 +50,13 @@ ring_face_width_mm = 48
 
 planet_teeth_count = (gear_ratio - 2) * sun_teeth_count / 2
 planet_face_width_mm = 8
+PLANET_BEARING_WIDTH_MM = 5
 
 carrier_arm_width_mm = 6.3
 carrier_arm_thickness_mm = 3
+
 pin_diameter_mm = 5.27
+PIN_LENGTH_MM = 7.5
 ring_wall_thickness_mm = 8
 
 carrier_hub_radius_mm = 35.1
@@ -217,23 +220,25 @@ class Pin(Component):
         return self._calculate_sigma(moment)
 
     def _calculate_moment(self):
-        # M_pin = F_t,p · eccentricity
-        eccentricity = (self.planet.face_width_mm * TO_METER / 2) - (self.length_mm / 2)
-        eccentricity_clamped = max(0, eccentricity)
-        moment = self.planet.effective_force * eccentricity_clamped
-        return moment
+        # Cantilever bending: force acts at free end
+        cantilever_length_mm = self.length_mm - PLANET_BEARING_WIDTH_MM
+        return self.planet.effective_force * (cantilever_length_mm * TO_METER)
 
     def _calculate_sigma(self, moment):
-        # σ_pin = 32·M_pin / (π·d_pin³)
-        return 32 * moment / (math.pi * math.pow(self.diameter_mm * TO_METER, 3))
+        # Cantilever bending stress
+        d_m = self.diameter_mm * TO_METER
+        return 32 * moment / (math.pi * math.pow(d_m, 3))
 
     def _calculate_von_mises(self):
-        sigma = self._calculate_bending()
+        moment = self._calculate_moment()
+        sigma = self._calculate_sigma(moment)
         tau = self._calculate_shear()
         return math.sqrt(sigma ** 2 + 3 * tau ** 2)
 
     def _calculate_bearing(self):
-        return self.planet.effective_force / (self.diameter_mm * self.length_mm * TO_METER)
+        # Bearing stress over embedded length
+        area_embed = self.diameter_mm * TO_METER * PLANET_BEARING_WIDTH_MM * TO_METER
+        return self.planet.effective_force / area_embed
 
 
 class CarrierArm(Component):
@@ -326,7 +331,7 @@ for i in range(1, STAGES_COUNT + 1):
     sun = Gear(sun_teeth_count, sun_face_width_mm, effective_force)
     planet = SecondaryGear(planet_teeth_count, planet_face_width_mm, effective_force)
     ring = Ring(ring_teeth_count, ring_face_width_mm, effective_force, ring_wall_thickness_mm)
-    pin = Pin(planet, pin_diameter_mm, 5 * 0.001)
+    pin = Pin(planet, pin_diameter_mm, PIN_LENGTH_MM)
 
     # 3. Output torque for this stage
     stage_output_torque = current_input_torque * gear_ratio
@@ -350,6 +355,6 @@ for i in range(1, STAGES_COUNT + 1):
             print(f"All {STAGES_COUNT} stages passed successfully! ✅")
         else:
             print(f"Stage {i} passed stress check ✅. Moving to next stage...\n")
-            
+
     # 8. Prepare torque for next stage
     current_input_torque = stage_output_torque
