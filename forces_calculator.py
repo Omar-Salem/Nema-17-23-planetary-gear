@@ -35,10 +35,10 @@ MODULE_METER = 0.001
 PRESSURE_ANGLE_DEGREE = 20
 SF = 3
 LOAD_SHARING_FACTOR = 1.2
+STAGES_COUNT = 2
 
 input_torque_newton_meters = .4
 gear_ratio = 6
-output_torque = input_torque_newton_meters * gear_ratio
 
 sun_teeth_count = 12
 sun_face_width = 13.3 * 0.001
@@ -60,8 +60,6 @@ carrier_hub_radius_meter = 35.1 * 0.001
 PLA_STRENGTH = 10e6  # 10 MPa = 10 N/mm² = 10e6 N/m²
 SIGMA_ALLOWED_MEGA_PASCAL = PLA_STRENGTH
 MAX_SIGMA_ALLOWED_MEGA_PASCAL = SIGMA_ALLOWED_MEGA_PASCAL / SF
-
-effective_force = (input_torque_newton_meters / sun_pitch_radius_meter) * LOAD_SHARING_FACTOR
 
 
 class Component:
@@ -250,7 +248,7 @@ class CarrierArm(Component):
         M_bending = self._calculate_moment()
         sigma_bending = self._calculate_sigma_bending(M_bending)
         tau_torsion = (2 * self.carrier_hub_torque) / (
-                    math.pi * self.planet.pitch_radius_meter ** 3)  # simple solid shaft
+                math.pi * self.planet.pitch_radius_meter ** 3)  # simple solid shaft
         return {
             "M_bending": M_bending,
             "sigma_bending": sigma_bending,
@@ -277,6 +275,7 @@ class CarrierArm(Component):
         c = self.thickness / 2
         return M_arm * c / I
 
+
 class CarrierHub(Component):
     def __init__(self, output_torque, radius_meter):
         self.output_torque = output_torque
@@ -292,15 +291,50 @@ class CarrierHub(Component):
         return (2 * self.output_torque) / (math.pi * self.radius_meter ** 3)
 
 
-sun = Gear(sun_teeth_count, sun_face_width, effective_force)
-planet = SecondaryGear(planet_teeth_count, planet_face_width, effective_force)
-ring = Ring(ring_teeth_count, ring_face_width, effective_force, ring_wall_thickness_meter)
+class Stage:
+    def __init__(self, index, sun, planet, ring, pin, carrier_arm, carrier_hub):
+        self.index = index
+        self.components = [sun, planet, ring, pin, carrier_arm, carrier_hub]
 
-pin = Pin(planet, pin_diameter_meter, 5 * 0.001)
-carrierArm = CarrierArm(planet, carrier_arm_width_meter, carrier_arm_thickness_meter, output_torque)
-carrierHub = CarrierHub(output_torque, carrier_hub_radius_meter)
+    def display(self):
+        print(f"Stage {self.index} results:")
+        for component in self.components:
+            component.display(MAX_SIGMA_ALLOWED_MEGA_PASCAL)
 
-components = [sun, planet, ring, pin, carrierArm, carrierHub]
+    def check_passed(self):
+        return all([c.passes_check() for c in self.components])
 
-for c in components:
-    c.display(MAX_SIGMA_ALLOWED_MEGA_PASCAL)
+
+current_input_torque = input_torque_newton_meters
+
+for i in range(1, STAGES_COUNT + 1):
+
+    # 1. Calculate effective tangential force for this stage
+    effective_force = (current_input_torque / sun_pitch_radius_meter) * LOAD_SHARING_FACTOR
+
+    # 2. Create new component instances for this stage
+    sun = Gear(sun_teeth_count, sun_face_width, effective_force)
+    planet = SecondaryGear(planet_teeth_count, planet_face_width, effective_force)
+    ring = Ring(ring_teeth_count, ring_face_width, effective_force, ring_wall_thickness_meter)
+    pin = Pin(planet, pin_diameter_meter, 5 * 0.001)
+
+    # 3. Output torque for this stage
+    stage_output_torque = current_input_torque * gear_ratio
+
+    # 4. Carrier components
+    carrier_arm = CarrierArm(planet, carrier_arm_width_meter, carrier_arm_thickness_meter, stage_output_torque)
+    carrier_hub = CarrierHub(stage_output_torque, carrier_hub_radius_meter)
+
+    # 5. Create stage and store it
+    stage = Stage(i, sun, planet, ring, pin, carrier_arm, carrier_hub)
+
+    # 6. Display results
+    stage.display()
+
+    # 7. Stop if any component fails
+    if not stage.check_passed():
+        print(f"Stage {i} failed stress check.")
+        break
+
+    # 8. Prepare torque for next stage
+    current_input_torque = stage_output_torque
