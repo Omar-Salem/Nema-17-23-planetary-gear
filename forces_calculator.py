@@ -34,21 +34,21 @@ PLANETS_COUNT = 3
 MODULE_METER = 0.001
 PRESSURE_ANGLE_DEGREE = 20
 SF = 3
-LOAD_SHARING_FACTOR = 1.2
+LOAD_SHARING_FACTOR = 1
 STAGES_COUNT = 2
 
 input_torque_newton_meters = .4
 gear_ratio = 6
 
 sun_teeth_count = 12
-sun_face_width = 13.3 * 0.001
+sun_face_width = 13 * 0.001
 sun_pitch_radius_meter = (MODULE_METER * sun_teeth_count) / 2
 
 ring_teeth_count = (gear_ratio - 1) * sun_teeth_count
-ring_face_width = 48.3 * 0.001
+ring_face_width = 48 * 0.001
 
 planet_teeth_count = (gear_ratio - 2) * sun_teeth_count / 2
-planet_face_width = 8.3 * 0.001
+planet_face_width = 8 * 0.001
 
 carrier_arm_width_meter = 6.3 * 0.001
 carrier_arm_thickness_meter = 3 * 0.001
