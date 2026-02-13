@@ -29,11 +29,18 @@ import math
 # Planet / ring: F_t_effective = F_t,p
 
 
+
+PLANETS_COUNT = 3
+MODULE_METER = 0.001
+PRESSURE_ANGLE_DEGREE = 20
+SF = 3
+
 input_torque_newton_meters = .4
 gear_ratio = 6
 
 sun_teeth_count = 12
 sun_face_width = 13.3 * 0.001
+sun_pitch_radius_meter = (MODULE_METER * sun_teeth_count) / 2
 
 ring_teeth_count = (gear_ratio - 1) * sun_teeth_count
 ring_face_width = 48.3 * 0.001
@@ -46,14 +53,12 @@ carrier_arm_thickness_meter = 3 * 0.001
 pin_diameter_meter = 5.27 * 0.001
 ring_wall_thickness_meter = 8 * 0.001
 
-PLANETS_COUNT = 3
-MODULE_METER = 0.001
-PRESSURE_ANGLE_DEGREE = 20
-SF = 3
-
 PLA_STRENGTH = 10e6  # 10 MPa = 10 N/mm² = 10e6 N/m²
 SIGMA_ALLOWED_MEGA_PASCAL = PLA_STRENGTH
 MAX_SIGMA_ALLOWED_MEGA_PASCAL = SIGMA_ALLOWED_MEGA_PASCAL / SF
+
+
+effective_force = input_torque_newton_meters / sun_pitch_radius_meter
 
 class Gear:
     # Lewis form factor lookup for 20° full-depth involute external spur gears
@@ -67,19 +72,18 @@ class Gear:
         100: 0.446, 150: 0.458, 200: 0.463, 300: 0.471
     }
 
-    def __init__(self, teeth_count, face_width, module, torque):
+    def __init__(self, teeth_count, face_width, effective_force):
         self.teeth_count = teeth_count
         self.face_width = face_width
-        self.module = module
-        self.pitch_radius_meter = (self.module * self.teeth_count) / 2
-        self.effective_force = torque / self.pitch_radius_meter
+        self.pitch_radius_meter = (MODULE_METER * self.teeth_count) / 2
+        self.effective_force = effective_force
 
     def passes_check(self, threshold):
         return self._calculate_bending_stress() < threshold
 
     def _calculate_bending_stress(self):
         lewis_y = self._get_lewis_form_factor(self.teeth_count)
-        return self.effective_force / (self.face_width * self.module * lewis_y)
+        return self.effective_force / (self.face_width * MODULE_METER* lewis_y)
 
     def _get_lewis_form_factor(self, teeth):
         """
@@ -104,22 +108,22 @@ class Gear:
         return self.LEWIS_20_TABLE[keys[-1] if teeth > keys[-1] else keys[0]]
 
 class SecondaryGear(Gear):
-    def __init__(self, teeth_count, face_width, module, torque):
-        super().__init__(teeth_count, face_width, module, torque)
+    def __init__(self, teeth_count, face_width, effective_force):
+        super().__init__(teeth_count, face_width,  effective_force)
         self.effective_force = self.effective_force / PLANETS_COUNT
-        self.radial_force = self.effective_force * math.tan(math.radians(PRESSURE_ANGLE_DEGREE))
     
 class Ring(SecondaryGear):
-    def __init__(self, teeth_count, face_width, module, torque, thickness):
-        super().__init__(teeth_count, face_width, module, torque)
+    def __init__(self, teeth_count, face_width,  effective_force, thickness):
+        super().__init__(teeth_count, face_width,  effective_force)
         self.thickness = thickness
+        self.radial_force = self.effective_force * math.tan(math.radians(PRESSURE_ANGLE_DEGREE))
 
     def passes_check(self, threshold):
         return super().passes_check(threshold) and self._calculate_ovalization() < threshold
 
     def _calculate_ovalization(self):
         # σ_ring ≈ (F_r,p · r_r) / (t_ring · b)
-        return (self.effective_force * self.pitch_radius_meter) / (self.thickness * self.face_width)
+        return (self.radial_force * self.pitch_radius_meter) / (self.thickness * self.face_width)
 
 class Pin:
     def __init__(self, planet, diameter, length):
@@ -128,7 +132,7 @@ class Pin:
         self.length = length
 
     def passes_check(self, threshold):
-        return self._calculate_shear() < threshold and self._calculate_bending() < threshold
+        return  self._calculate_von_mises() < threshold
 
     def _calculate_shear(self):
         # F_t,p / (π·d_pin²/4)
@@ -141,6 +145,13 @@ class Pin:
         eccentricity = (self.planet.face_width / 2) - (self.length / 2)
         moment = self.planet.effective_force * eccentricity
         return (32 * moment) / (math.pi * math.pow(self.diameter, 3))
+    
+
+    def _calculate_von_mises(self):
+        sigma = self._calculate_bending()
+        tau = self._calculate_shear()
+        return math.sqrt(sigma**2 + 3*tau**2)
+
 
 class CarrierArm:
     def __init__(self, planet, width, thickness):
@@ -168,9 +179,9 @@ class CarrierArm:
 
 
 
-sun = Gear(sun_teeth_count, sun_face_width, MODULE_METER, input_torque_newton_meters)
-planet = SecondaryGear(planet_teeth_count, planet_face_width, MODULE_METER, input_torque_newton_meters)
-ring = Ring(ring_teeth_count, ring_face_width, MODULE_METER, input_torque_newton_meters, ring_wall_thickness_meter)
+sun = Gear(sun_teeth_count, sun_face_width,  effective_force)
+planet = SecondaryGear(planet_teeth_count, planet_face_width, effective_force)
+ring = Ring(ring_teeth_count, ring_face_width,  effective_force, ring_wall_thickness_meter)
 
 pin = Pin(planet, pin_diameter_meter, 5 * 0.001)
 carrierArm = CarrierArm(planet, carrier_arm_width_meter, carrier_arm_thickness_meter)
