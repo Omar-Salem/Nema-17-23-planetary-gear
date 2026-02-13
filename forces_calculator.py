@@ -50,13 +50,12 @@ ring_face_width_mm = 48
 
 planet_teeth_count = (gear_ratio - 2) * sun_teeth_count / 2
 planet_face_width_mm = 8
-PLANET_BEARING_WIDTH_MM = 5
 
 carrier_arm_width_mm = 6.3
 carrier_arm_thickness_mm = 3
 
 pin_diameter_mm = 5.27
-PIN_LENGTH_MM = 7.5
+PIN_LENGTH_MM = 5
 ring_wall_thickness_mm = 8
 
 carrier_hub_radius_mm = 35.1
@@ -187,10 +186,11 @@ class Ring(SecondaryGear):
 
 
 class Pin(Component):
-    def __init__(self, planet, diameter_mm, length_mm):
+    def __init__(self, planet, diameter_mm, length_mm, fillet_radius_mm=0.5):
         self.planet = planet
         self.diameter_mm = diameter_mm
         self.length_mm = length_mm
+        self.fillet_radius_mm = fillet_radius_mm
 
     def passes_check(self, threshold):
         return self._calculate_von_mises() < threshold and self._calculate_bearing() < threshold
@@ -211,34 +211,63 @@ class Pin(Component):
             "tau_shear": tau_pin
         }
 
-    def _calculate_shear(self):
-        # F_t,p / (π·d_pin²/4)
-        return self.planet.effective_force / (math.pi * math.pow(self.diameter_mm * TO_METER, 2) / 4)
-
     def _calculate_bending(self):
         moment = self._calculate_moment()
         return self._calculate_sigma(moment)
 
+    def _calculate_shear(self):
+        """
+        Calculates peak transverse shear stress for a solid cylinder.
+        Formula: (4 * V) / (3 * Area)
+        """
+        V = self.planet.effective_force  # Total force
+        area = (math.pi * math.pow(self.diameter_mm * TO_METER, 2)) / 4
+        return (4 * V) / (3 * area)
+
     def _calculate_moment(self):
-        # Cantilever bending: force acts at free end
-        cantilever_length_mm = self.length_mm - PLANET_BEARING_WIDTH_MM
-        return self.planet.effective_force * (cantilever_length_mm * TO_METER)
+        """
+        Calculates max moment for a Cantilever with Uniformly Distributed Load (UDL).
+        Formula: M = (Force * Length) / 2
+        """
+        force = self.planet.effective_force
+        length_m = self.length_mm * TO_METER
+        # For UDL, max moment at the root is FL/2
+        return (force * length_m) / 2
 
     def _calculate_sigma(self, moment):
         # Cantilever bending stress
         d_m = self.diameter_mm * TO_METER
         return 32 * moment / (math.pi * math.pow(d_m, 3))
 
+    def _get_kt(self):
+        """
+        Estimates the stress concentration factor (Kt) for a stepped shaft in bending.
+        Based on r/d (fillet radius / diameter).
+        """
+        r_d = self.fillet_radius_mm / self.diameter_mm
+        if r_d < 0.01: return 3.0  # Very sharp
+        if r_d < 0.05: return 2.2  # Typical machined corner
+        if r_d < 0.1:  return 1.7  # Small fillet
+        return 1.5                 # Generous fillet
+
     def _calculate_von_mises(self):
         moment = self._calculate_moment()
-        sigma = self._calculate_sigma(moment)
+        sigma_nominal = self._calculate_sigma(moment)
         tau = self._calculate_shear()
-        return math.sqrt(sigma ** 2 + 3 * tau ** 2)
+        
+        # Apply Kt to bending stress
+        kt = self._get_kt()
+        sigma_max = sigma_nominal * kt
+        
+        # Combined stress at the fillet/root
+        return math.sqrt(sigma_max**2 + 3 * (tau**2))
 
     def _calculate_bearing(self):
-        # Bearing stress over embedded length
-        area_embed = self.diameter_mm * TO_METER * PLANET_BEARING_WIDTH_MM * TO_METER
-        return self.planet.effective_force / area_embed
+        """
+        Bearing stress over the projected area.
+        """
+        area_proj = (self.diameter_mm * TO_METER) * (self.length_mm * TO_METER)
+        return self.planet.effective_force / area_proj
 
 
 class CarrierArm(Component):
