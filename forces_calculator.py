@@ -38,27 +38,27 @@ LOAD_SHARING_FACTOR = 1
 STAGES_COUNT = 2
 TO_METER = 0.001
 
-input_torque_newton_meters = .4
-gear_ratio = 6
+MOTOR_TORQUE_NEWTON_METERS = 0.4
+GEAR_RATIO = 6
 
-sun_teeth_count = 12
-sun_face_width_mm = 13
-sun_pitch_radius_mm = (MODULE_MM * sun_teeth_count * TO_METER) / 2
+SUN_TEETH_COUNT = 12
+SUN_FACE_WIDTH_MM = 13
+SUN_PITCH_RADIUS_MM = (MODULE_MM * SUN_TEETH_COUNT * TO_METER) / 2
 
-ring_teeth_count = (gear_ratio - 1) * sun_teeth_count
-ring_face_width_mm = 48
+RING_TEETH_COUNT = (GEAR_RATIO - 1) * SUN_TEETH_COUNT
+RING_FACE_WIDTH_MM = 48
 
-planet_teeth_count = (gear_ratio - 2) * sun_teeth_count / 2
-planet_face_width_mm = 8
+PLANET_TEETH_COUNT = (GEAR_RATIO - 2) * SUN_TEETH_COUNT / 2
+PLANET_FACE_WIDTH_MM = 8
 
-carrier_arm_width_mm = 6.3
-carrier_arm_thickness_mm = 3
+CARRIER_ARM_WIDTH_MM = 6.3
+CARRIER_ARM_THICKNESS_MM = 3
 
-pin_diameter_mm = 5.27
+PIN_DIAMETER_MM = 5.27
 PIN_LENGTH_MM = 5
-ring_wall_thickness_mm = 8
+RING_WALL_THICKNESS_MM = 8
 
-carrier_hub_radius_mm = 35.1
+CARRIER_HUB_RADIUS_MM = 35.1
 
 PLA_STRENGTH = 10e6  # 10 MPa = 10 N/mm² = 10e6 N/m²
 SIGMA_ALLOWED_MEGA_PASCAL = PLA_STRENGTH
@@ -364,25 +364,25 @@ class Stage:
         return all([c.passes_check(MAX_SIGMA_ALLOWED_MEGA_PASCAL) for c in self.components])
 
 
-current_input_torque = input_torque_newton_meters
+current_input_torque = MOTOR_TORQUE_NEWTON_METERS
 
 for i in range(1, STAGES_COUNT + 1):
 
     # 1. Calculate effective tangential force for this stage
-    effective_force = (current_input_torque / sun_pitch_radius_mm) * LOAD_SHARING_FACTOR
+    effective_force = (current_input_torque / SUN_PITCH_RADIUS_MM) * LOAD_SHARING_FACTOR
 
     # 2. Create new component instances for this stage
-    sun = Gear(sun_teeth_count, sun_face_width_mm, effective_force)
-    planet = SecondaryGear(planet_teeth_count, planet_face_width_mm, effective_force)
-    ring = Ring(ring_teeth_count, ring_face_width_mm, effective_force, ring_wall_thickness_mm)
-    pin = Pin(planet, pin_diameter_mm, PIN_LENGTH_MM)
+    sun = Gear(SUN_TEETH_COUNT, SUN_FACE_WIDTH_MM, effective_force)
+    planet = SecondaryGear(PLANET_TEETH_COUNT, PLANET_FACE_WIDTH_MM, effective_force)
+    ring = Ring(RING_TEETH_COUNT, RING_FACE_WIDTH_MM, effective_force, RING_WALL_THICKNESS_MM)
+    pin = Pin(planet, PIN_DIAMETER_MM, PIN_LENGTH_MM)
 
     # 3. Output torque for this stage
-    stage_output_torque = current_input_torque * gear_ratio
+    stage_output_torque = current_input_torque * GEAR_RATIO
 
     # 4. Carrier components
-    carrier_arm = CarrierArm(planet, carrier_arm_width_mm, carrier_arm_thickness_mm, stage_output_torque)
-    carrier_hub = CarrierHub(stage_output_torque, carrier_hub_radius_mm)
+    carrier_arm = CarrierArm(planet, CARRIER_ARM_WIDTH_MM, CARRIER_ARM_THICKNESS_MM, stage_output_torque)
+    carrier_hub = CarrierHub(stage_output_torque, CARRIER_HUB_RADIUS_MM)
 
     # 5. Create stage and store it
     stage = Stage(i, sun, planet, ring, pin, carrier_arm, carrier_hub)
