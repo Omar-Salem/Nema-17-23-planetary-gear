@@ -1,4 +1,5 @@
 import math
+from abc import ABC, abstractmethod
 
 # | Name                | Symbol | Value | Units |
 # | ------------------- | ------ | ----- | ----- |
@@ -63,7 +64,23 @@ MAX_SIGMA_ALLOWED_MEGA_PASCAL = SIGMA_ALLOWED_MEGA_PASCAL / SF
 
 effective_force = (input_torque_newton_meters / sun_pitch_radius_meter) * LOAD_SHARING_FACTOR
 
-class Gear:
+class Component:
+    @abstractmethod
+    def passes_check(self, threshold):
+        # This method must be implemented by all subclasses
+        pass
+
+
+    @abstractmethod
+    def get_name(self):
+        # This method must be implemented by all subclasses
+        pass
+    
+    def display(self, threshold):
+        check= "✅" if self.passes_check(threshold) else "❌"
+        print(f"{self.get_name()}:\tPass: {check}\n")
+
+class Gear(Component):
     # Lewis form factor lookup for 20° full-depth involute external spur gears
     EXTERNAL_LEWIS_20_TABLE = {
         10: 0.201, 11: 0.226, 12: 0.245, 13: 0.264, 14: 0.276,
@@ -83,6 +100,9 @@ class Gear:
 
     def passes_check(self, threshold):
         return self._calculate_bending_stress() < threshold
+    
+    def get_name(self):
+        return "Sun"
 
     def _calculate_bending_stress(self):
         lewis_y = self._get_lewis_form_factor(self.teeth_count)
@@ -114,6 +134,9 @@ class SecondaryGear(Gear):
     def __init__(self, teeth_count, face_width, effective_force):
         super().__init__(teeth_count, face_width,  effective_force)
         self.effective_force = self.effective_force / PLANETS_COUNT
+
+    def get_name(self):
+        return "Planet"
     
 class Ring(SecondaryGear):
     def __init__(self, teeth_count, face_width,  effective_force, thickness):
@@ -123,6 +146,9 @@ class Ring(SecondaryGear):
 
     def passes_check(self, threshold):
         return self._calculate_bending_stress() < threshold and self._calculate_ovalization() < threshold
+    
+    def get_name(self):
+        return "Ring"
     
     def get_fem_loads(self):
         """
@@ -147,7 +173,7 @@ class Ring(SecondaryGear):
         # σ_ring ≈ (F_r,p · r_r) / (t_ring · b)
         return (self.radial_force * self.pitch_radius_meter) / (self.thickness * self.face_width)
 
-class Pin:
+class Pin(Component):
     def __init__(self, planet, diameter, length):
         self.planet = planet
         self.diameter = diameter
@@ -155,6 +181,9 @@ class Pin:
 
     def passes_check(self, threshold):
         return  self._calculate_von_mises() < threshold and self._calculate_bearing() < threshold
+    
+    def get_name(self):
+        return "Pin"
     
     def get_fem_loads(self):
         """
@@ -196,7 +225,7 @@ class Pin:
     def _calculate_bearing(self):
         return self.planet.effective_force / (self.diameter * self.length)
 
-class CarrierArm:
+class CarrierArm(Component):
     def __init__(self, planet, width, thickness):
         self.planet = planet
         self.width = width
@@ -204,6 +233,9 @@ class CarrierArm:
 
     def passes_check(self, threshold):
         return self._calculate_shear() < threshold and self._calculate_bending() < threshold
+    
+    def get_name(self):
+        return "CarrierArm"
     
     def get_fem_loads(self, carrier_hub_torque):
         """
@@ -238,13 +270,16 @@ class CarrierArm:
         # M_arm = F_t,p · r_p
         return self.planet.effective_force * self.planet.pitch_radius_meter
 
-class CarrierHub:
+class CarrierHub(Component):
     def __init__(self, output_torque, radius_meter):
         self.output_torque = output_torque
         self.radius_meter = radius_meter
 
     def passes_check(self, threshold):
         return self._calculate_shear() < threshold
+    
+    def get_name(self):
+        return "CarrierHub"
 
     def _calculate_shear(self):
         return (2 * self.output_torque) / (math.pi * self.radius_meter**3)
@@ -262,4 +297,4 @@ carrierHub=CarrierHub(input_torque_newton_meters * gear_ratio, carrier_hub_radiu
 components = [sun, planet, ring, pin, carrierArm,carrierHub]
 
 for c in components:
-    c.passes_check(MAX_SIGMA_ALLOWED_MEGA_PASCAL)
+    c.display(MAX_SIGMA_ALLOWED_MEGA_PASCAL)
