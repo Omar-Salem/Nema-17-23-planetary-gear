@@ -55,6 +55,8 @@ carrier_arm_thickness_meter = 3 * 0.001
 pin_diameter_meter = 5.27 * 0.001
 ring_wall_thickness_meter = 8 * 0.001
 
+carrier_hub_radius_meter= 35.1 * 0.001
+
 PLA_STRENGTH = 10e6  # 10 MPa = 10 N/mm² = 10e6 N/m²
 SIGMA_ALLOWED_MEGA_PASCAL = PLA_STRENGTH
 MAX_SIGMA_ALLOWED_MEGA_PASCAL = SIGMA_ALLOWED_MEGA_PASCAL / SF
@@ -121,6 +123,18 @@ class Ring(SecondaryGear):
 
     def passes_check(self, threshold):
         return self._calculate_bending_stress() < threshold and self._calculate_ovalization() < threshold
+    
+    def get_fem_loads(self):
+        """
+        Returns radial load and tooth load for FEM.
+        """
+        sigma_ovalization = self._calculate_ovalization()
+        sigma_tooth = self._calculate_bending_stress()
+        return {
+            "F_radial": self.radial_force,
+            "sigma_ovalization": sigma_ovalization,
+            "sigma_tooth": sigma_tooth
+        }
 
     
     def _calculate_bending_stress(self):
@@ -141,21 +155,39 @@ class Pin:
 
     def passes_check(self, threshold):
         return  self._calculate_von_mises() < threshold and self._calculate_bearing() < threshold
+    
+    def get_fem_loads(self):
+        """
+        Returns bending moment and shear for FEM.
+        """
+        tau_pin = self.planet.effective_force / (math.pi * self.diameter**2 / 4)
+        M_pin = self.calculate_moment()
+        sigma_bending= self.calculate_sigma(M_pin)
+        return {
+            "M_bending": M_pin,
+            "sigma_bending": sigma_bending,
+            "tau_shear": tau_pin
+        }
 
     def _calculate_shear(self):
         # F_t,p / (π·d_pin²/4)
         return self.planet.effective_force / (math.pi * math.pow(self.diameter, 2) / 4)
 
     def _calculate_bending(self):
-        # M_pin = F_t,p · eccentricity
-        # σ_pin = 32·M_pin / (π·d_pin³)
+        moment = self.calculate_moment()
+        return self.calculate_sigma(moment)
 
+    def calculate_sigma(self, moment):
+        # σ_pin = 32·M_pin / (π·d_pin³)
+        return 32 * moment / (math.pi * math.pow(self.diameter, 3))
+
+    def calculate_moment(self):
+        # M_pin = F_t,p · eccentricity
         eccentricity = (self.planet.face_width / 2) - (self.length / 2)
         eccentricity_clamped = max(0, eccentricity)
         moment = self.planet.effective_force * eccentricity_clamped
-        return (32 * moment) / (math.pi * math.pow(self.diameter, 3))
+        return moment
     
-
     def _calculate_von_mises(self):
         sigma = self._calculate_bending()
         tau = self._calculate_shear()
@@ -172,32 +204,50 @@ class CarrierArm:
 
     def passes_check(self, threshold):
         return self._calculate_shear() < threshold and self._calculate_bending() < threshold
+    
+    def get_fem_loads(self, carrier_hub_torque):
+        """
+        Returns bending moment and torsion for FEM.
+        """
+        M_bending = self.calculate_moment()
+        sigma_bending = self.calculate_sigma_bending(M_bending)
+        tau_torsion = (2 * carrier_hub_torque) / (math.pi * self.planet.pitch_radius_meter**3)  # simple solid shaft
+        return {
+            "M_bending": M_bending,
+            "sigma_bending": sigma_bending,
+            "tau_torsion": tau_torsion
+        }
 
     def _calculate_shear(self):
         # τ_arm = F_t,p / (w · t)
         return self.planet.effective_force / (self.width * self.thickness)
 
     def _calculate_bending(self):
-        # M_arm = F_t,p · r_p
+        M_arm = self.calculate_moment()
+        return self.calculate_sigma_bending(M_arm)
+
+    def calculate_sigma_bending(self, M_arm):
         # I = w·t³ / 12
         # c = t / 2
         # σ_arm = M_arm · c / I
-
-        M_arm = self.planet.effective_force * self.planet.pitch_radius_meter
         I = self.width * math.pow(self.thickness, 3) / 12
         c = self.thickness / 2
         return M_arm * c / I
 
+    def calculate_moment(self):
+        # M_arm = F_t,p · r_p
+        return self.planet.effective_force * self.planet.pitch_radius_meter
+
 class CarrierHub:
-    def __init__(self, output_torque, radius):
+    def __init__(self, output_torque, radius_meter):
         self.output_torque = output_torque
-        self.radius = radius
+        self.radius_meter = radius_meter
 
     def passes_check(self, threshold):
         return self._calculate_shear() < threshold
 
     def _calculate_shear(self):
-        return (2 * self.output_torque) / (math.pi * self.radius**3)
+        return (2 * self.output_torque) / (math.pi * self.radius_meter**3)
 
 
 
@@ -207,8 +257,9 @@ ring = Ring(ring_teeth_count, ring_face_width,  effective_force, ring_wall_thick
 
 pin = Pin(planet, pin_diameter_meter, 5 * 0.001)
 carrierArm = CarrierArm(planet, carrier_arm_width_meter, carrier_arm_thickness_meter)
+carrierHub=CarrierHub(input_torque_newton_meters * gear_ratio, carrier_hub_radius_meter)
 
-components = [sun, planet, ring, pin, carrierArm]
+components = [sun, planet, ring, pin, carrierArm,carrierHub]
 
 for c in components:
     c.passes_check(MAX_SIGMA_ALLOWED_MEGA_PASCAL)
