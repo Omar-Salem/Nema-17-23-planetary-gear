@@ -31,18 +31,19 @@ from abc import ABC, abstractmethod
 
 
 PLANETS_COUNT = 3
-MODULE_METER = 0.001
+MODULE_MM = 1
 PRESSURE_ANGLE_DEGREE = 20
 SF = 3
 LOAD_SHARING_FACTOR = 1
 STAGES_COUNT = 2
+TO_METER = 0.001
 
 input_torque_newton_meters = .4
 gear_ratio = 6
 
 sun_teeth_count = 12
 sun_face_width = 13 * 0.001
-sun_pitch_radius_meter = (MODULE_METER * sun_teeth_count) / 2
+sun_pitch_radius_meter = (MODULE_MM * sun_teeth_count * TO_METER) / 2
 
 ring_teeth_count = (gear_ratio - 1) * sun_teeth_count
 ring_face_width = 48 * 0.001
@@ -102,7 +103,7 @@ class Gear(Component):
     def __init__(self, teeth_count, face_width, effective_force):
         self.teeth_count = teeth_count
         self.face_width = face_width
-        self.pitch_radius_meter = (MODULE_METER * self.teeth_count) / 2
+        self.pitch_radius_meter = (MODULE_MM * self.teeth_count * TO_METER) / 2
         self.effective_force = effective_force
 
     def passes_check(self, threshold):
@@ -112,8 +113,9 @@ class Gear(Component):
         return "Sun"
 
     def _calculate_bending_stress(self):
+        # σ = F / (b * m * y)
         lewis_y = self._get_lewis_form_factor(self.teeth_count)
-        return self.effective_force / (self.face_width * MODULE_METER * lewis_y)
+        return self.effective_force / (self.face_width * MODULE_MM * lewis_y)
 
     def _get_lewis_form_factor(self, teeth):
         """
@@ -174,7 +176,7 @@ class Ring(SecondaryGear):
     def _calculate_bending_stress(self):
         y_ext = self._get_lewis_form_factor(self.teeth_count)
         y_internal = 1.3 * y_ext
-        return self.effective_force / (self.face_width * MODULE_METER * y_internal)
+        return self.effective_force / (self.face_width * MODULE_MM * y_internal)
 
     def _calculate_ovalization(self):
         # σ_ring ≈ (F_r,p · r_r) / (t_ring · b)
@@ -197,7 +199,7 @@ class Pin(Component):
         """
         Returns bending moment and shear for FEM.
         """
-        tau_pin = self.planet.effective_force / (math.pi * self.diameter ** 2 / 4)
+        tau_pin = self._calculate_shear()
         M_pin = self._calculate_moment()
         sigma_bending = self._calculate_sigma(M_pin)
         return {
