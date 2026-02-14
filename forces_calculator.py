@@ -65,10 +65,6 @@ MAX_SIGMA_ALLOWED_MEGA_PASCAL = PLA_STRENGTH / SAFETY_FACTOR
 
 
 class Component:
-    @abstractmethod
-    def passes_check(self, threshold):
-        # This method must be implemented by all subclasses
-        pass
 
     @abstractmethod
     def get_name(self):
@@ -78,15 +74,47 @@ class Component:
     def get_fem_loads(self):
         return {}
 
+    @abstractmethod
+    def get_governing_stress(self):
+        """
+        Return the worst-case stress for this component.
+        Must be implemented by subclasses.
+        """
+        pass
+
+    def get_margin_data(self, threshold):
+        sigma = self.get_governing_stress()
+        utilization = sigma / threshold
+        margin_of_safety = (threshold / sigma) - 1 if sigma != 0 else float("inf")
+        delta = threshold - sigma
+
+        return sigma, utilization, margin_of_safety, delta
+
     def display(self, threshold):
-        check = "✅" if self.passes_check(threshold) else "❌"
-        print(f"{self.get_name():<14} {check:^7} {self._format_fem():<40}")
+        sigma, util, mos, delta = self.get_margin_data(threshold)
+        check = "✅" if util < 1 else "❌"
+        fem_output = self._format_fem() if util < 1 else "-"
+
+        if mos > 9999:
+            mos_str = " >9999"
+        else:
+            mos_str = f"{mos:7.2f}"
+
+        print(
+            f"{self.get_name():<15}"
+            f"{check:<7}"
+            f"σ MPa={sigma/1e6:<6.2f} "
+            f"U={util:<8.2f} "
+            f"MoS={mos_str:<9} "
+            f"   {fem_output}"
+        )
 
     def _format_fem(self):
         fem_dict = self.get_fem_loads()
         if not fem_dict:
             return "-"
-        return ", ".join([f"{k}: {v:.2f}" for k, v in fem_dict.items()])
+        return ", ".join([f"{k}: {v:.2e}" for k, v in fem_dict.items()])
+
 
 
 class Gear(Component):
@@ -140,6 +168,9 @@ class Gear(Component):
         # fallback to nearest
         return self.EXTERNAL_LEWIS_20_TABLE[keys[-1] if teeth > keys[-1] else keys[0]]
 
+    def get_governing_stress(self):
+        return self._calculate_bending_stress()
+
 
 class SecondaryGear(Gear):
     def __init__(self, teeth_count, face_width_mm, effective_force):
@@ -182,6 +213,12 @@ class Ring(SecondaryGear):
     def _calculate_ovalization(self):
         # σ_ring ≈ (F_r,p · r_r) / (t_ring · b)
         return (self.radial_force * self.pitch_radius_mm * TO_METER) / (self.thickness * self.face_width_mm * TO_METER)
+
+    def get_governing_stress(self):
+        return max(
+            self._calculate_bending_stress(),
+            self._calculate_ovalization()
+        )
 
 
 class Pin(Component):
@@ -265,7 +302,7 @@ class Pin(Component):
 
     def _calculate_von_mises(self):
         moment = self._calculate_moment()
-        sigma_nominal = self._calculate_sigma(moment)  
+        sigma_nominal = self._calculate_sigma(moment)
         tau = self._calculate_shear()
 
         # Apply Kt only to the pin (fillet), assume bolt is smooth and concentric
@@ -273,8 +310,7 @@ class Pin(Component):
         sigma_max = sigma_nominal * kt
 
         # Von Mises combining bending + shear
-        return math.sqrt(sigma_max**2 + 3 * (tau**2))
-
+        return math.sqrt(sigma_max ** 2 + 3 * (tau ** 2))
 
     def _calculate_bearing(self):
         """
@@ -283,11 +319,17 @@ class Pin(Component):
         area_proj = (self.diameter_mm * TO_METER) * (self.length_mm * TO_METER)
         return self.planet.effective_force / area_proj
 
+    def get_governing_stress(self):
+        return max(
+            self._calculate_von_mises(),
+            self._calculate_bearing()
+        )
+
 
 class CarrierArm(Component):
-    def __init__(self, planet, width, thickness, carrier_hub_torque):
+    def __init__(self, planet, width_mm, thickness, carrier_hub_torque):
         self.planet = planet
-        self.width = width
+        self.width_mm = width_mm
         self.thickness = thickness
         self.carrier_hub_torque = carrier_hub_torque
 
@@ -313,7 +355,8 @@ class CarrierArm(Component):
 
     def _calculate_shear(self):
         # τ_arm = F_t,p / (w · t)
-        return self.planet.effective_force / (self.width * self.thickness)
+        area_m2 = (self.width_mm * TO_METER) * (self.thickness * TO_METER)
+        return self.planet.effective_force / area_m2
 
     def _calculate_bending(self):
         M_arm = self._calculate_moment()
@@ -327,15 +370,25 @@ class CarrierArm(Component):
         # I = w·t³ / 12
         # c = t / 2
         # σ_arm = M_arm · c / I
-        I = self.width * math.pow(self.thickness, 3) / 12
-        c = self.thickness / 2
+        w_m = self.width_mm * TO_METER
+        t_m = self.thickness * TO_METER
+
+        I = w_m * t_m**3 / 12
+        c = t_m / 2
+
         return M_arm * c / I
+
+    def get_governing_stress(self):
+        return max(
+            self._calculate_shear(),
+            self._calculate_bending()
+        )
 
 
 class CarrierHub(Component):
-    def __init__(self, output_torque, radius_meter):
+    def __init__(self, output_torque, radius_mm):
         self.output_torque = output_torque
-        self.radius_meter = radius_meter
+        self.radius_mm = radius_mm
 
     def passes_check(self, threshold):
         return self._calculate_shear() < threshold
@@ -344,7 +397,11 @@ class CarrierHub(Component):
         return "CarrierHub"
 
     def _calculate_shear(self):
-        return (2 * self.output_torque) / (math.pi * self.radius_meter ** 3)
+        radius_meter= self.radius_mm * TO_METER
+        return (2 * self.output_torque) / (math.pi * math.pow(radius_meter, 3))  # simple solid shaft assumption
+
+    def get_governing_stress(self):
+        return self._calculate_shear()
 
 
 class Stage:
@@ -354,7 +411,7 @@ class Stage:
 
     def display(self):
         print(f"Stage {self.index} results:")
-        print(f"Component\tPass\tFem\n")
+        print(f"Component\tPass\tMargins\t\t\t\t\tFem\n")
         for component in self.components:
             component.display(MAX_SIGMA_ALLOWED_MEGA_PASCAL)
         print()
