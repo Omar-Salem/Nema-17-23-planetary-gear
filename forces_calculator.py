@@ -1,50 +1,23 @@
 import math
 from abc import ABC, abstractmethod
 
-# | Name                | Symbol | Value | Units |
-# | ------------------- | ------ | ----- | ----- |
-# | Input torque        | `T_in` |       | Nm    |
-# | Sun pitch radius    | `r_s`  |       | m     |
-# | Planet pitch radius | `r_p`  |       | m     |
-# | Ring pitch radius   | `r_r`  |       | m     |
-# | Number of planets   | `N`    |       | –     |
-# | Face width          | `b`    |       | m     |
-# | Module              | `m`    | 0.001 | m     |
-# | Pressure angle      | `α`    | 20    | deg   |
-# | Carrier arm width     | `w`      |       |
-# | Carrier arm thickness | `t`      |       |
-# | Carrier hub radius    | `r_hub`  |       |
-# | Pin diameter          | `d_pin`  |       |
-# | Ring wall thickness   | `t_ring` |       |
 
-# Tangential force
-# F_t = T_in / r_s
 
-# Per planet:
-# F_t,p = F_t / N
+MOTOR_TORQUE_NEWTON_MM = 400
+MATERIAL_STRENGTH_MEGA_PASCAL = 38  # N/mm²
+SAFETY_FACTOR = 3
 
-# Radial force
-# F_r,p = F_t,p · tan(α)
-
-# Sun: F_t_effective = F_t
-# Planet / ring: F_t_effective = F_t,p
-
-MOTOR_TORQUE_NEWTON_METERS = 0.4
-MATERIAL_STRENGTH_MEGA_PASCAL = 10e6  # 10 MPa = 10 N/mm² = 10e6 N/m²
+GEAR_RATIO = 6
 
 PLANETS_COUNT = 3
 MODULE_MM = 1
 PRESSURE_ANGLE_DEGREE = 20
-SAFETY_FACTOR = 3
 LOAD_SHARING_FACTOR = 1
 STAGES_COUNT = 2
-TO_METER = 0.001
-
-GEAR_RATIO = 6
 
 SUN_TEETH_COUNT = 12
 SUN_FACE_WIDTH_MM = 13
-SUN_PITCH_RADIUS_MM = (MODULE_MM * SUN_TEETH_COUNT * TO_METER) / 2
+SUN_PITCH_RADIUS_MM = (MODULE_MM * SUN_TEETH_COUNT ) / 2
 
 RING_TEETH_COUNT = (GEAR_RATIO - 1) * SUN_TEETH_COUNT
 RING_FACE_WIDTH_MM = 48
@@ -104,7 +77,7 @@ class Component:
         print(
             f"{self.get_name():<15}"
             f"{check:<7}"
-            f"σ MPa={sigma / 1e6:<6.2f} "
+            f"σ MPa={sigma :<6.2f} "
             f"U={util:<8.2f} "
             f"MoS={mos_str:<9} "
             f"   {fem_output}"
@@ -144,7 +117,7 @@ class Gear(Component):
     def _calculate_bending_stress(self):
         # σ = F / (b * m * y)
         lewis_y = self._get_lewis_form_factor(self.teeth_count)
-        return self.effective_force / (self.face_width_mm * MODULE_MM * lewis_y * TO_METER)
+        return self.effective_force / (self.face_width_mm * MODULE_MM * lewis_y )
 
     def _get_lewis_form_factor(self, teeth):
         """
@@ -208,11 +181,11 @@ class Ring(SecondaryGear):
     def _calculate_bending_stress(self):
         y_ext = self._get_lewis_form_factor(self.teeth_count)
         y_internal = 1.3 * y_ext
-        return self.effective_force / (self.face_width_mm * MODULE_MM * y_internal * TO_METER)
+        return self.effective_force / (self.face_width_mm * MODULE_MM * y_internal )
 
     def _calculate_ovalization(self):
         # σ_ring ≈ (F_r,p · r_r) / (t_ring · b)
-        return (self.radial_force * self.pitch_radius_mm * TO_METER) / (self.thickness * self.face_width_mm * TO_METER)
+        return (self.radial_force * self.pitch_radius_mm ) / (self.thickness * self.face_width_mm )
 
     def get_governing_stress(self):
         return max(
@@ -258,7 +231,7 @@ class Pin(Component):
         Formula: (4 * V) / (3 * Area)
         """
         V = self.planet.effective_force  # Total force
-        area = (math.pi * math.pow(self.diameter_mm * TO_METER, 2)) / 4
+        area = (math.pi * math.pow(self.diameter_mm , 2)) / 4
         return (4 * V) / (3 * area)
 
     def _calculate_moment(self):
@@ -267,19 +240,18 @@ class Pin(Component):
         Formula: M = (Force * Length) / 2
         """
         force = self.planet.effective_force
-        length_m = self.length_mm * TO_METER
         # For UDL, max moment at the root is FL/2
-        return (force * length_m) / 2
+        return (force * self.length_mm ) / 2
 
     def _calculate_sigma(self, moment):
         """
         Bending stress using combined inertia of pin + bolt if present.
         """
-        d_pin_m = self.diameter_mm * TO_METER
+        d_pin_m = self.diameter_mm 
         I_pin = (math.pi * math.pow(d_pin_m, 4)) / 64
 
         if self.bolt_diameter_mm:
-            d_bolt_m = self.bolt_diameter_mm * TO_METER
+            d_bolt_m = self.bolt_diameter_mm 
             I_bolt = (math.pi * math.pow(d_bolt_m, 4)) / 64
             I_eff = I_pin + I_bolt
             c_max = max(d_pin_m, d_bolt_m) / 2
@@ -316,7 +288,7 @@ class Pin(Component):
         """
         Bearing stress over the projected area.
         """
-        area_proj = (self.diameter_mm * TO_METER) * (self.length_mm * TO_METER)
+        area_proj = (self.diameter_mm ) * (self.length_mm )
         return self.planet.effective_force / area_proj
 
     def get_governing_stress(self):
@@ -346,7 +318,7 @@ class Pin(Component):
 #         m_bending = self._calculate_moment()
 #         sigma_bending = self._calculate_sigma_bending(m_bending)
 #         tau_torsion = (2 * self.carrier_hub_torque) / (
-#                 math.pi * math.pow(self.planet.pitch_radius_mm * TO_METER, 3))  # simple solid shaft
+#                 math.pi * math.pow(self.planet.pitch_radius_mm , 3))  # simple solid shaft
 #         return {
 #             "M_bending": m_bending,
 #             "sigma_bending": sigma_bending,
@@ -355,7 +327,7 @@ class Pin(Component):
 #
 #     def _calculate_shear(self):
 #         # τ_arm = F_t,p / (w · t)
-#         area_m2 = (self.width_mm * TO_METER) * (self.thickness_mm * TO_METER)
+#         area_m2 = (self.width_mm ) * (self.thickness_mm )
 #         return self.planet.effective_force / area_m2
 #
 #     def _calculate_bending(self):
@@ -364,14 +336,14 @@ class Pin(Component):
 #
 #     def _calculate_moment(self):
 #         # M_arm = F_t,p · r_p
-#         return self.planet.effective_force * self.planet.pitch_radius_mm * TO_METER
+#         return self.planet.effective_force * self.planet.pitch_radius_mm 
 #
 #     def _calculate_sigma_bending(self, m_arm):
 #         # I = w·t³ / 12
 #         # c = t / 2
 #         # σ_arm = M_arm · c / I
-#         w_m = self.width_mm * TO_METER
-#         t_m = self.thickness_mm * TO_METER
+#         w_m = self.width_mm 
+#         t_m = self.thickness_mm 
 #
 #         I = w_m * t_m**3 / 12
 #         c = t_m / 2
@@ -397,8 +369,7 @@ class CarrierHub(Component):
         return "CarrierHub"
 
     def _calculate_shear(self):
-        radius_meter = self.radius_mm * TO_METER
-        return (2 * self.output_torque) / (math.pi * math.pow(radius_meter, 3))  # simple solid shaft assumption
+        return (2 * self.output_torque) / (math.pi * math.pow(self.radius_mm , 3))  # simple solid shaft assumption
 
     def get_governing_stress(self):
         return self._calculate_shear()
@@ -420,7 +391,7 @@ class Stage:
         return all([c.passes_check(MAX_SIGMA_ALLOWED_MEGA_PASCAL) for c in self.components])
 
 
-current_input_torque = MOTOR_TORQUE_NEWTON_METERS
+current_input_torque = MOTOR_TORQUE_NEWTON_MM
 
 for i in range(1, STAGES_COUNT + 1):
 
