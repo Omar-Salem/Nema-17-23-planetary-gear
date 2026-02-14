@@ -366,7 +366,7 @@ class CarrierArm(Component):
         # M_arm = F_t,p · r_p
         return self.planet.effective_force * self.planet.pitch_radius_mm * TO_METER
 
-    def _calculate_sigma_bending(self, M_arm):
+    def _calculate_sigma_bending(self, m_arm):
         # I = w·t³ / 12
         # c = t / 2
         # σ_arm = M_arm · c / I
@@ -376,7 +376,7 @@ class CarrierArm(Component):
         I = w_m * t_m**3 / 12
         c = t_m / 2
 
-        return M_arm * c / I
+        return m_arm * c / I
 
     def get_governing_stress(self):
         return max(
