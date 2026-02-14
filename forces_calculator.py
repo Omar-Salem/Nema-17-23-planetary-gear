@@ -53,7 +53,7 @@ PLANET_TEETH_COUNT = (GEAR_RATIO - 2) * SUN_TEETH_COUNT / 2
 PLANET_FACE_WIDTH_MM = 8
 
 CARRIER_ARM_WIDTH_MM = 6.3
-CARRIER_ARM_THICKNESS_MM = 3
+CARRIER_ARM_THICKNESS_MM = 8
 
 PIN_DIAMETER_MM = 5.27
 PIN_LENGTH_MM = 5
@@ -327,10 +327,10 @@ class Pin(Component):
 
 
 class CarrierArm(Component):
-    def __init__(self, planet, width_mm, thickness, carrier_hub_torque):
+    def __init__(self, planet, width_mm, thickness_mm, carrier_hub_torque):
         self.planet = planet
         self.width_mm = width_mm
-        self.thickness = thickness
+        self.thickness_mm = thickness_mm
         self.carrier_hub_torque = carrier_hub_torque
 
     def passes_check(self, threshold):
@@ -343,24 +343,24 @@ class CarrierArm(Component):
         """
         Returns bending moment and torsion for FEM.
         """
-        M_bending = self._calculate_moment()
-        sigma_bending = self._calculate_sigma_bending(M_bending)
+        m_bending = self._calculate_moment()
+        sigma_bending = self._calculate_sigma_bending(m_bending)
         tau_torsion = (2 * self.carrier_hub_torque) / (
                 math.pi * math.pow(self.planet.pitch_radius_mm * TO_METER, 3))  # simple solid shaft
         return {
-            "M_bending": M_bending,
+            "M_bending": m_bending,
             "sigma_bending": sigma_bending,
             "tau_torsion": tau_torsion
         }
 
     def _calculate_shear(self):
         # τ_arm = F_t,p / (w · t)
-        area_m2 = (self.width_mm * TO_METER) * (self.thickness * TO_METER)
+        area_m2 = (self.width_mm * TO_METER) * (self.thickness_mm * TO_METER)
         return self.planet.effective_force / area_m2
 
     def _calculate_bending(self):
-        M_arm = self._calculate_moment()
-        return self._calculate_sigma_bending(M_arm)
+        m_arm = self._calculate_moment()
+        return self._calculate_sigma_bending(m_arm)
 
     def _calculate_moment(self):
         # M_arm = F_t,p · r_p
@@ -371,7 +371,7 @@ class CarrierArm(Component):
         # c = t / 2
         # σ_arm = M_arm · c / I
         w_m = self.width_mm * TO_METER
-        t_m = self.thickness * TO_METER
+        t_m = self.thickness_mm * TO_METER
 
         I = w_m * t_m**3 / 12
         c = t_m / 2
