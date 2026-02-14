@@ -30,7 +30,7 @@ from abc import ABC, abstractmethod
 # Planet / ring: F_t_effective = F_t,p
 
 MOTOR_TORQUE_NEWTON_METERS = 0.4
-PLA_STRENGTH = 10e6  # 10 MPa = 10 N/mm² = 10e6 N/m²
+MATERIAL_STRENGTH_MEGA_PASCAL = 10e6  # 10 MPa = 10 N/mm² = 10e6 N/m²
 
 PLANETS_COUNT = 3
 MODULE_MM = 1
@@ -57,11 +57,12 @@ CARRIER_ARM_THICKNESS_MM = 8
 
 PIN_DIAMETER_MM = 5.27
 PIN_LENGTH_MM = 5
+PIN_FILLET_RADIUS_MM = .5
 RING_WALL_THICKNESS_MM = 8
 
 CARRIER_HUB_RADIUS_MM = 35.1
 
-MAX_SIGMA_ALLOWED_MEGA_PASCAL = PLA_STRENGTH / SAFETY_FACTOR
+MAX_SIGMA_ALLOWED_MEGA_PASCAL = MATERIAL_STRENGTH_MEGA_PASCAL / SAFETY_FACTOR
 
 
 class Component:
@@ -103,7 +104,7 @@ class Component:
         print(
             f"{self.get_name():<15}"
             f"{check:<7}"
-            f"σ MPa={sigma/1e6:<6.2f} "
+            f"σ MPa={sigma / 1e6:<6.2f} "
             f"U={util:<8.2f} "
             f"MoS={mos_str:<9} "
             f"   {fem_output}"
@@ -114,7 +115,6 @@ class Component:
         if not fem_dict:
             return "-"
         return ", ".join([f"{k}: {v:.2e}" for k, v in fem_dict.items()])
-
 
 
 class Gear(Component):
@@ -222,7 +222,7 @@ class Ring(SecondaryGear):
 
 
 class Pin(Component):
-    def __init__(self, planet, diameter_mm, length_mm, fillet_radius_mm=0.5, bolt_diameter_mm=None):
+    def __init__(self, planet, diameter_mm, length_mm, fillet_radius_mm, bolt_diameter_mm=None):
         self.planet = planet
         self.diameter_mm = diameter_mm
         self.length_mm = length_mm
@@ -326,63 +326,63 @@ class Pin(Component):
         )
 
 
-class CarrierArm(Component):
-    def __init__(self, planet, width_mm, thickness_mm, carrier_hub_torque):
-        self.planet = planet
-        self.width_mm = width_mm
-        self.thickness_mm = thickness_mm
-        self.carrier_hub_torque = carrier_hub_torque
-
-    def passes_check(self, threshold):
-        return self._calculate_shear() < threshold and self._calculate_bending() < threshold
-
-    def get_name(self):
-        return "CarrierArm"
-
-    def get_fem_loads(self):
-        """
-        Returns bending moment and torsion for FEM.
-        """
-        m_bending = self._calculate_moment()
-        sigma_bending = self._calculate_sigma_bending(m_bending)
-        tau_torsion = (2 * self.carrier_hub_torque) / (
-                math.pi * math.pow(self.planet.pitch_radius_mm * TO_METER, 3))  # simple solid shaft
-        return {
-            "M_bending": m_bending,
-            "sigma_bending": sigma_bending,
-            "tau_torsion": tau_torsion
-        }
-
-    def _calculate_shear(self):
-        # τ_arm = F_t,p / (w · t)
-        area_m2 = (self.width_mm * TO_METER) * (self.thickness_mm * TO_METER)
-        return self.planet.effective_force / area_m2
-
-    def _calculate_bending(self):
-        m_arm = self._calculate_moment()
-        return self._calculate_sigma_bending(m_arm)
-
-    def _calculate_moment(self):
-        # M_arm = F_t,p · r_p
-        return self.planet.effective_force * self.planet.pitch_radius_mm * TO_METER
-
-    def _calculate_sigma_bending(self, m_arm):
-        # I = w·t³ / 12
-        # c = t / 2
-        # σ_arm = M_arm · c / I
-        w_m = self.width_mm * TO_METER
-        t_m = self.thickness_mm * TO_METER
-
-        I = w_m * t_m**3 / 12
-        c = t_m / 2
-
-        return m_arm * c / I
-
-    def get_governing_stress(self):
-        return max(
-            self._calculate_shear(),
-            self._calculate_bending()
-        )
+# class CarrierArm(Component):
+#     def __init__(self, planet, width_mm, thickness_mm, carrier_hub_torque):
+#         self.planet = planet
+#         self.width_mm = width_mm
+#         self.thickness_mm = thickness_mm
+#         self.carrier_hub_torque = carrier_hub_torque
+#
+#     def passes_check(self, threshold):
+#         return self._calculate_shear() < threshold and self._calculate_bending() < threshold
+#
+#     def get_name(self):
+#         return "CarrierArm"
+#
+#     def get_fem_loads(self):
+#         """
+#         Returns bending moment and torsion for FEM.
+#         """
+#         m_bending = self._calculate_moment()
+#         sigma_bending = self._calculate_sigma_bending(m_bending)
+#         tau_torsion = (2 * self.carrier_hub_torque) / (
+#                 math.pi * math.pow(self.planet.pitch_radius_mm * TO_METER, 3))  # simple solid shaft
+#         return {
+#             "M_bending": m_bending,
+#             "sigma_bending": sigma_bending,
+#             "tau_torsion": tau_torsion
+#         }
+#
+#     def _calculate_shear(self):
+#         # τ_arm = F_t,p / (w · t)
+#         area_m2 = (self.width_mm * TO_METER) * (self.thickness_mm * TO_METER)
+#         return self.planet.effective_force / area_m2
+#
+#     def _calculate_bending(self):
+#         m_arm = self._calculate_moment()
+#         return self._calculate_sigma_bending(m_arm)
+#
+#     def _calculate_moment(self):
+#         # M_arm = F_t,p · r_p
+#         return self.planet.effective_force * self.planet.pitch_radius_mm * TO_METER
+#
+#     def _calculate_sigma_bending(self, m_arm):
+#         # I = w·t³ / 12
+#         # c = t / 2
+#         # σ_arm = M_arm · c / I
+#         w_m = self.width_mm * TO_METER
+#         t_m = self.thickness_mm * TO_METER
+#
+#         I = w_m * t_m**3 / 12
+#         c = t_m / 2
+#
+#         return m_arm * c / I
+#
+#     def get_governing_stress(self):
+#         return max(
+#             self._calculate_shear(),
+#             self._calculate_bending()
+#         )
 
 
 class CarrierHub(Component):
@@ -397,7 +397,7 @@ class CarrierHub(Component):
         return "CarrierHub"
 
     def _calculate_shear(self):
-        radius_meter= self.radius_mm * TO_METER
+        radius_meter = self.radius_mm * TO_METER
         return (2 * self.output_torque) / (math.pi * math.pow(radius_meter, 3))  # simple solid shaft assumption
 
     def get_governing_stress(self):
@@ -405,9 +405,9 @@ class CarrierHub(Component):
 
 
 class Stage:
-    def __init__(self, index, sun, planet, ring, pin, carrier_arm, carrier_hub):
+    def __init__(self, index, *components):
         self.index = index
-        self.components = [sun, planet, ring, pin, carrier_arm, carrier_hub]
+        self.components = components
 
     def display(self):
         print(f"Stage {self.index} results:")
@@ -431,17 +431,17 @@ for i in range(1, STAGES_COUNT + 1):
     sun = Gear(SUN_TEETH_COUNT, SUN_FACE_WIDTH_MM, effective_force)
     planet = SecondaryGear(PLANET_TEETH_COUNT, PLANET_FACE_WIDTH_MM, effective_force)
     ring = Ring(RING_TEETH_COUNT, RING_FACE_WIDTH_MM, effective_force, RING_WALL_THICKNESS_MM)
-    pin = Pin(planet, PIN_DIAMETER_MM, PIN_LENGTH_MM)
+    pin = Pin(planet, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM)
 
     # 3. Output torque for this stage
     stage_output_torque = current_input_torque * GEAR_RATIO
 
     # 4. Carrier components
-    carrier_arm = CarrierArm(planet, CARRIER_ARM_WIDTH_MM, CARRIER_ARM_THICKNESS_MM, stage_output_torque)
+    # carrier_arm = CarrierArm(planet, CARRIER_ARM_WIDTH_MM, CARRIER_ARM_THICKNESS_MM, stage_output_torque)
     carrier_hub = CarrierHub(stage_output_torque, CARRIER_HUB_RADIUS_MM)
 
     # 5. Create stage and store it
-    stage = Stage(i, sun, planet, ring, pin, carrier_arm, carrier_hub)
+    stage = Stage(i, sun, planet, ring, pin, carrier_hub)
 
     # 6. Display results
     stage.display()
