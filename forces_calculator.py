@@ -1,11 +1,10 @@
 import math
 from abc import ABC, abstractmethod
 
-
-
 MOTOR_TORQUE_NEWTON_MM = 400
 MATERIAL_STRENGTH_MEGA_PASCAL = 38  # N/mm²
 SAFETY_FACTOR = 3
+EFFICIENCY = .95
 
 GEAR_RATIO = 6
 
@@ -17,7 +16,7 @@ STAGES_COUNT = 2
 
 SUN_TEETH_COUNT = 12
 SUN_FACE_WIDTH_MM = 13
-SUN_PITCH_RADIUS_MM = (MODULE_MM * SUN_TEETH_COUNT ) / 2
+SUN_PITCH_RADIUS_MM = (MODULE_MM * SUN_TEETH_COUNT) / 2
 
 RING_TEETH_COUNT = (GEAR_RATIO - 1) * SUN_TEETH_COUNT
 RING_FACE_WIDTH_MM = 48
@@ -117,7 +116,7 @@ class Gear(Component):
     def _calculate_bending_stress(self):
         # σ = F / (b * m * y)
         lewis_y = self._get_lewis_form_factor(self.teeth_count)
-        return self.effective_force / (self.face_width_mm * MODULE_MM * lewis_y )
+        return self.effective_force / (self.face_width_mm * MODULE_MM * lewis_y)
 
     def _get_lewis_form_factor(self, teeth):
         """
@@ -181,11 +180,11 @@ class Ring(SecondaryGear):
     def _calculate_bending_stress(self):
         y_ext = self._get_lewis_form_factor(self.teeth_count)
         y_internal = 1.3 * y_ext
-        return self.effective_force / (self.face_width_mm * MODULE_MM * y_internal )
+        return self.effective_force / (self.face_width_mm * MODULE_MM * y_internal)
 
     def _calculate_ovalization(self):
         # σ_ring ≈ (F_r,p · r_r) / (t_ring · b)
-        return (self.radial_force * self.pitch_radius_mm ) / (self.thickness * self.face_width_mm )
+        return (self.radial_force * self.pitch_radius_mm) / (self.thickness * self.face_width_mm)
 
     def get_governing_stress(self):
         return max(
@@ -231,7 +230,7 @@ class Pin(Component):
         Formula: (4 * V) / (3 * Area)
         """
         V = self.planet.effective_force  # Total force
-        area = (math.pi * math.pow(self.diameter_mm , 2)) / 4
+        area = (math.pi * math.pow(self.diameter_mm, 2)) / 4
         return (4 * V) / (3 * area)
 
     def _calculate_moment(self):
@@ -241,17 +240,17 @@ class Pin(Component):
         """
         force = self.planet.effective_force
         # For UDL, max moment at the root is FL/2
-        return (force * self.length_mm ) / 2
+        return (force * self.length_mm) / 2
 
     def _calculate_sigma(self, moment):
         """
         Bending stress using combined inertia of pin + bolt if present.
         """
-        d_pin_m = self.diameter_mm 
+        d_pin_m = self.diameter_mm
         I_pin = (math.pi * math.pow(d_pin_m, 4)) / 64
 
         if self.bolt_diameter_mm:
-            d_bolt_m = self.bolt_diameter_mm 
+            d_bolt_m = self.bolt_diameter_mm
             I_bolt = (math.pi * math.pow(d_bolt_m, 4)) / 64
             I_eff = I_pin + I_bolt
             c_max = max(d_pin_m, d_bolt_m) / 2
@@ -288,7 +287,7 @@ class Pin(Component):
         """
         Bearing stress over the projected area.
         """
-        area_proj = (self.diameter_mm ) * (self.length_mm )
+        area_proj = (self.diameter_mm) * (self.length_mm)
         return self.planet.effective_force / area_proj
 
     def get_governing_stress(self):
@@ -369,7 +368,7 @@ class CarrierHub(Component):
         return "CarrierHub"
 
     def _calculate_shear(self):
-        return (2 * self.output_torque) / (math.pi * math.pow(self.radius_mm , 3))  # simple solid shaft assumption
+        return (2 * self.output_torque) / (math.pi * math.pow(self.radius_mm, 3))  # simple solid shaft assumption
 
     def get_governing_stress(self):
         return self._calculate_shear()
@@ -428,4 +427,4 @@ for i in range(1, STAGES_COUNT + 1):
             print(f"Stage {i} passed stress check ✅. Moving to next stage...\n")
 
     # 8. Prepare torque for next stage
-    current_input_torque = stage_output_torque
+    current_input_torque = stage_output_torque * EFFICIENCY
