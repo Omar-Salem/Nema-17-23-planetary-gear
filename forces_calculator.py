@@ -426,48 +426,36 @@ class Stage:
 # Start from required output torque
 current_output_torque = OUTPUT_TORQUE_REQUIRED_NEWTON_MM
 
-for i in reversed(range(1, STAGES_COUNT + 1)):
+stage_input_torque = current_output_torque / (GEAR_RATIO * EFFICIENCY)
 
-    # Input torque for this stage (before reduction)
-    stage_input_torque = current_output_torque / (GEAR_RATIO * EFFICIENCY)
+# Tangential force at sun
+effective_force = (stage_input_torque / SUN_PITCH_RADIUS_MM) / LOAD_SHARING_FACTOR
 
-    # Tangential force at sun
-    effective_force = (stage_input_torque / SUN_PITCH_RADIUS_MM) / LOAD_SHARING_FACTOR
+# 2. Create new component instances for this stage
+sun = Gear(SUN_TEETH_COUNT, SUN_FACE_WIDTH_MM, effective_force)
+planet = SecondaryGear(PLANET_TEETH_COUNT, PLANET_FACE_WIDTH_MM, effective_force)
+ring = Ring(RING_TEETH_COUNT, RING_FACE_WIDTH_MM, effective_force, RING_WALL_THICKNESS_MM)
+pin = Pin(planet, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM)
 
-    # 2. Create new component instances for this stage
-    sun = Gear(SUN_TEETH_COUNT, SUN_FACE_WIDTH_MM, effective_force)
-    planet = SecondaryGear(PLANET_TEETH_COUNT, PLANET_FACE_WIDTH_MM, effective_force)
-    ring = Ring(RING_TEETH_COUNT, RING_FACE_WIDTH_MM, effective_force, RING_WALL_THICKNESS_MM)
-    pin = Pin(planet, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM)
+carrier_hub = CarrierHub(
+    current_output_torque,
+    CARRIER_HUB_RADIUS_MM,
+    CARRIER_HUB_BOLT_COUNT,
+    CARRIER_HUB_BOLT_CIRCLE_RADIUS_MM,
+    HEAT_INSERT_DIAMETER_MM,
+    HEAT_INSERT_EMBED_DEPTH_MM,
+    AXIAL_LOAD_N,
+    MAX_BENDING_FORCE_N,  # Force, not torque
+    LIFT_RADIUS_MM  # Lever arm
+)
 
-    carrier_hub = CarrierHub(
-        current_output_torque,
-        CARRIER_HUB_RADIUS_MM,
-        CARRIER_HUB_BOLT_COUNT,
-        CARRIER_HUB_BOLT_CIRCLE_RADIUS_MM,
-        HEAT_INSERT_DIAMETER_MM,
-        HEAT_INSERT_EMBED_DEPTH_MM,
-        AXIAL_LOAD_N,
-        MAX_BENDING_FORCE_N,  # Force, not torque
-        LIFT_RADIUS_MM  # Lever arm
-    )
+# 5. Create stage and store it
+stage = Stage(STAGES_COUNT, sun, planet, ring, pin, carrier_hub)
 
-    # 5. Create stage and store it
-    stage = Stage(i, sun, planet, ring, pin, carrier_hub)
+# 6. Display results
+stage.display()
 
-    # 6. Display results
-    stage.display()
-
-    # 7. Stop if any component fails
-    if not stage.check_passed():
-        print(f"Stage {i} failed stress check ❌.")
-        break
-    else:
-        if i == STAGES_COUNT:
-            print(f"All {STAGES_COUNT} stages passed successfully! ✅")
-        else:
-            print(f"Stage {i} passed stress check ✅. Moving to next stage...\n")
-
-    # 8. Prepare torque for next stage
-    # Next stage sees this as its output
-    current_output_torque = stage_input_torque
+if not stage.check_passed():
+    print(f"Stage {STAGES_COUNT} failed stress check ❌.")
+else:
+    print(f"Stage {STAGES_COUNT} passed successfully ✅")
