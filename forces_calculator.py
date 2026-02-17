@@ -1,7 +1,7 @@
 import math
 from abc import ABC, abstractmethod
 
-MOTOR_TORQUE_NEWTON_MM = 400
+MOTOR_TORQUE_NEWTON_MM = 17
 MATERIAL_STRENGTH_MEGA_PASCAL = 38  # N/mm²
 SAFETY_FACTOR = 3
 EFFICIENCY = .95
