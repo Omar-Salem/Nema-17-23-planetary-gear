@@ -213,17 +213,6 @@ class Pin(Component):
         self.length_mm = length_mm
         self.fillet_radius_mm = fillet_radius_mm
         self.bolt_diameter_mm = bolt_diameter_mm
-        """
-        Returns bending moment and shear for FEM.
-        """
-        tau_pin = self._calculate_shear()
-        M_pin = self._calculate_moment()
-        sigma_bending = self._calculate_sigma(M_pin)
-        return {
-            "M_bending": M_pin,
-            "sigma_bending": sigma_bending,
-            "tau_shear": tau_pin
-        }
 
     def _calculate_bending(self):
         moment = self._calculate_moment()
@@ -308,7 +297,6 @@ class Pin(Component):
             self._calculate_von_mises(),
             self._calculate_bearing()
         )
-
     def passes_check(self, threshold):
         return self._calculate_von_mises() < threshold and self._calculate_bearing() < threshold
 
@@ -316,6 +304,18 @@ class Pin(Component):
         return "Pin"
 
     def get_fem_loads(self):
+        """
+        Returns bending moment and shear for FEM.
+        """
+        tau_pin = self._calculate_shear()
+        M_pin = self._calculate_moment()
+        sigma_bending = self._calculate_sigma(M_pin)
+        return {
+            "M_bending": M_pin,
+            "sigma_bending": sigma_bending,
+            "tau_shear": tau_pin
+        }
+
 
 class CarrierHub(Component):
     def __init__(self, output_torque,
