@@ -27,12 +27,14 @@ PLANET_FACE_WIDTH_MM = 8
 CARRIER_ARM_WIDTH_MM = 6.3
 CARRIER_ARM_THICKNESS_MM = 8
 
+PIN_DISTANCE_FROM_CENTER_MM = 18
 PIN_DIAMETER_MM = 5.27
 PIN_LENGTH_MM = 5
 PIN_FILLET_RADIUS_MM = .5
+
 RING_WALL_THICKNESS_MM = 8
 
-CARRIER_HUB_RADIUS_MM = 35.1/2
+CARRIER_HUB_RADIUS_MM = 35.1 / 2
 CARRIER_HUB_BOLT_COUNT = 8
 CARRIER_HUB_BOLT_CIRCLE_RADIUS_MM = 13.2
 HEAT_INSERT_DIAMETER_MM = 4.2
@@ -204,8 +206,9 @@ class Ring(SecondaryGear):
 
 
 class Pin(Component):
-    def __init__(self, planet, diameter_mm, length_mm, fillet_radius_mm, bolt_diameter_mm=None):
-        self.planet = planet
+    def __init__(self, torque, distance_from_center, diameter_mm, length_mm, fillet_radius_mm,
+                 bolt_diameter_mm=None):
+        self.effective_force = torque / (PLANETS_COUNT * distance_from_center)
         self.diameter_mm = diameter_mm
         self.length_mm = length_mm
         self.fillet_radius_mm = fillet_radius_mm
@@ -235,38 +238,46 @@ class Pin(Component):
         return self._calculate_sigma(moment)
 
     def _calculate_shear(self):
+        radius = self.diameter_mm / 2
+        area = math.pi * math.pow(radius, 2)
+        peak_stress = (4 * self.effective_force) / (3 * area)  # (Parabolic Shear Stress Theory)
+        average_stress = self.effective_force / area
+        return average_stress
+
+    def _calculate_deflection(self):
         """
-        Calculates peak transverse shear stress for a solid cylinder.
-        Formula: (4 * V) / (3 * Area)
+        FL⁴/8EI
         """
-        V = self.planet.effective_force  # Total force
-        area = (math.pi * math.pow(self.diameter_mm, 2)) / 4
-        return (4 * V) / (3 * area)
+        E = 2500  # Young's modulus for PLA in N/mm²
+        return (self.effective_force * math.pow(self.length_mm, 4)) / (8 * E * I)
 
     def _calculate_moment(self):
         """
         Calculates max moment for a Cantilever with Uniformly Distributed Load (UDL).
-        Formula: M = (Force * Length) / 2
+        Formula: FL²/2
         """
-        force = self.planet.effective_force
-        # For UDL, max moment at the root is FL/2
-        return (force * self.length_mm) / 2
+        return (self.effective_force * math.pow(self.length_mm, 2)) / 2
+
+    def _calculate_area_moment_of_inertia(self, diameter_mm):
+        """
+        I = π * r⁴ / 4 for solid circular cross-section
+        """
+        radius = diameter_mm / 2
+        return (math.pi * math.pow(radius, 4)) / 4
 
     def _calculate_sigma(self, moment):
         """
         Bending stress using combined inertia of pin + bolt if present.
         """
-        d_pin_m = self.diameter_mm
-        I_pin = (math.pi * math.pow(d_pin_m, 4)) / 64
+        I_pin = self._calculate_area_moment_of_inertia(self.diameter_mm)
 
         if self.bolt_diameter_mm:
-            d_bolt_m = self.bolt_diameter_mm
-            I_bolt = (math.pi * math.pow(d_bolt_m, 4)) / 64
+            I_bolt = self._calculate_area_moment_of_inertia(self.bolt_diameter_mm)
             I_eff = I_pin + I_bolt
-            c_max = max(d_pin_m, d_bolt_m) / 2
+            c_max = max(self.diameter_mm, self.bolt_diameter_mm) / 2
         else:
             I_eff = I_pin
-            c_max = d_pin_m / 2
+            c_max = self.diameter_mm / 2
 
         return moment * c_max / I_eff
 
@@ -298,72 +309,13 @@ class Pin(Component):
         Bearing stress over the projected area.
         """
         area_proj = (self.diameter_mm) * (self.length_mm)
-        return self.planet.effective_force / area_proj
+        return self.effective_force / area_proj
 
     def get_governing_stress(self):
         return max(
             self._calculate_von_mises(),
             self._calculate_bearing()
         )
-
-
-# class CarrierArm(Component):
-#     def __init__(self, planet, width_mm, thickness_mm, carrier_hub_torque):
-#         self.planet = planet
-#         self.width_mm = width_mm
-#         self.thickness_mm = thickness_mm
-#         self.carrier_hub_torque = carrier_hub_torque
-#
-#     def passes_check(self, threshold):
-#         return self._calculate_shear() < threshold and self._calculate_bending() < threshold
-#
-#     def get_name(self):
-#         return "CarrierArm"
-#
-#     def get_fem_loads(self):
-#         """
-#         Returns bending moment and torsion for FEM.
-#         """
-#         m_bending = self._calculate_moment()
-#         sigma_bending = self._calculate_sigma_bending(m_bending)
-#         tau_torsion = (2 * self.carrier_hub_torque) / (
-#                 math.pi * math.pow(self.planet.pitch_radius_mm , 3))  # simple solid shaft
-#         return {
-#             "M_bending": m_bending,
-#             "sigma_bending": sigma_bending,
-#             "tau_torsion": tau_torsion
-#         }
-#
-#     def _calculate_shear(self):
-#         # τ_arm = F_t,p / (w · t)
-#         area_m2 = (self.width_mm ) * (self.thickness_mm )
-#         return self.planet.effective_force / area_m2
-#
-#     def _calculate_bending(self):
-#         m_arm = self._calculate_moment()
-#         return self._calculate_sigma_bending(m_arm)
-#
-#     def _calculate_moment(self):
-#         # M_arm = F_t,p · r_p
-#         return self.planet.effective_force * self.planet.pitch_radius_mm 
-#
-#     def _calculate_sigma_bending(self, m_arm):
-#         # I = w·t³ / 12
-#         # c = t / 2
-#         # σ_arm = M_arm · c / I
-#         w_m = self.width_mm 
-#         t_m = self.thickness_mm 
-#
-#         I = w_m * t_m**3 / 12
-#         c = t_m / 2
-#
-#         return m_arm * c / I
-#
-#     def get_governing_stress(self):
-#         return max(
-#             self._calculate_shear(),
-#             self._calculate_bending()
-#         )
 
 
 class CarrierHub(Component):
@@ -492,10 +444,10 @@ for i in range(1, STAGES_COUNT + 1):
     sun = Gear(SUN_TEETH_COUNT, SUN_FACE_WIDTH_MM, effective_force)
     planet = SecondaryGear(PLANET_TEETH_COUNT, PLANET_FACE_WIDTH_MM, effective_force)
     ring = Ring(RING_TEETH_COUNT, RING_FACE_WIDTH_MM, effective_force, RING_WALL_THICKNESS_MM)
-    pin = Pin(planet, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM)
 
     # 3. Output torque for this stage
-    stage_output_torque = current_input_torque * GEAR_RATIO
+    stage_output_torque = current_input_torque * GEAR_RATIO * EFFICIENCY
+    pin = Pin(stage_output_torque, PIN_DISTANCE_FROM_CENTER_MM, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM)
 
     carrier_hub = CarrierHub(
         stage_output_torque,
@@ -525,4 +477,4 @@ for i in range(1, STAGES_COUNT + 1):
             print(f"Stage {i} passed stress check ✅. Moving to next stage...\n")
 
     # 8. Prepare torque for next stage
-    current_input_torque = stage_output_torque * EFFICIENCY
+    current_input_torque = stage_output_torque
