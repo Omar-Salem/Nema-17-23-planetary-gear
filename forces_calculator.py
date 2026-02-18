@@ -1,17 +1,18 @@
 import math
 from abc import ABC, abstractmethod
 
+MOTOR_TORQUE_NEWTON_MM = 17
 MATERIAL_STRENGTH_MEGA_PASCAL = 38  # N/mm²
 SAFETY_FACTOR = 3
 EFFICIENCY = .95
-LOAD_SHARING_FACTOR = 1
 
 GEAR_RATIO = 6
-STAGES_COUNT = 2
-TOTAL_RATIO = math.pow(GEAR_RATIO, STAGES_COUNT)
+
 PLANETS_COUNT = 3
 MODULE_MM = 1
 PRESSURE_ANGLE_DEGREE = 20
+LOAD_SHARING_FACTOR = 1
+STAGES_COUNT = 2
 
 SUN_TEETH_COUNT = 12
 SUN_FACE_WIDTH_MM = 13
@@ -31,21 +32,19 @@ PIN_LENGTH_MM = 5
 PIN_FILLET_RADIUS_MM = .5
 RING_WALL_THICKNESS_MM = 8
 
-CARRIER_HUB_RADIUS_MM = 35.1 / 2
+CARRIER_HUB_RADIUS_MM = 35.1/2
 CARRIER_HUB_BOLT_COUNT = 8
 CARRIER_HUB_BOLT_CIRCLE_RADIUS_MM = 13.2
 HEAT_INSERT_DIAMETER_MM = 4.2
 HEAT_INSERT_EMBED_DEPTH_MM = 5
 
 AXIAL_LOAD_N = 0
-LIFT_MASS_KG = 4
-LIFT_RADIUS_MM = 100
-GRAVITY = 9.81
-OUTPUT_TORQUE_REQUIRED_NEWTON_MM = LIFT_MASS_KG * GRAVITY * LIFT_RADIUS_MM
+BENDING_FORCE_ACC_SF = 2  # Account for dynamic effects
+BENDING_FORCE_N = 40  # ~4 Kg
+MAX_BENDING_FORCE_N = BENDING_FORCE_N * BENDING_FORCE_ACC_SF
+BENDING_LEVER_ARM_MM = 100
 
 MAX_SIGMA_ALLOWED_MEGA_PASCAL = MATERIAL_STRENGTH_MEGA_PASCAL / SAFETY_FACTOR
-BENDING_FORCE_ACC_SF = 2  # Account for dynamic effects
-MAX_BENDING_FORCE_N = LIFT_MASS_KG * GRAVITY * BENDING_FORCE_ACC_SF
 
 
 class Component:
@@ -308,6 +307,65 @@ class Pin(Component):
         )
 
 
+# class CarrierArm(Component):
+#     def __init__(self, planet, width_mm, thickness_mm, carrier_hub_torque):
+#         self.planet = planet
+#         self.width_mm = width_mm
+#         self.thickness_mm = thickness_mm
+#         self.carrier_hub_torque = carrier_hub_torque
+#
+#     def passes_check(self, threshold):
+#         return self._calculate_shear() < threshold and self._calculate_bending() < threshold
+#
+#     def get_name(self):
+#         return "CarrierArm"
+#
+#     def get_fem_loads(self):
+#         """
+#         Returns bending moment and torsion for FEM.
+#         """
+#         m_bending = self._calculate_moment()
+#         sigma_bending = self._calculate_sigma_bending(m_bending)
+#         tau_torsion = (2 * self.carrier_hub_torque) / (
+#                 math.pi * math.pow(self.planet.pitch_radius_mm , 3))  # simple solid shaft
+#         return {
+#             "M_bending": m_bending,
+#             "sigma_bending": sigma_bending,
+#             "tau_torsion": tau_torsion
+#         }
+#
+#     def _calculate_shear(self):
+#         # τ_arm = F_t,p / (w · t)
+#         area_m2 = (self.width_mm ) * (self.thickness_mm )
+#         return self.planet.effective_force / area_m2
+#
+#     def _calculate_bending(self):
+#         m_arm = self._calculate_moment()
+#         return self._calculate_sigma_bending(m_arm)
+#
+#     def _calculate_moment(self):
+#         # M_arm = F_t,p · r_p
+#         return self.planet.effective_force * self.planet.pitch_radius_mm 
+#
+#     def _calculate_sigma_bending(self, m_arm):
+#         # I = w·t³ / 12
+#         # c = t / 2
+#         # σ_arm = M_arm · c / I
+#         w_m = self.width_mm 
+#         t_m = self.thickness_mm 
+#
+#         I = w_m * t_m**3 / 12
+#         c = t_m / 2
+#
+#         return m_arm * c / I
+#
+#     def get_governing_stress(self):
+#         return max(
+#             self._calculate_shear(),
+#             self._calculate_bending()
+#         )
+
+
 class CarrierHub(Component):
     def __init__(self, output_torque,
                  shaft_radius_mm,
@@ -423,39 +481,48 @@ class Stage:
         return all([c.passes_check(MAX_SIGMA_ALLOWED_MEGA_PASCAL) for c in self.components])
 
 
-# Start from required output torque
-current_output_torque = OUTPUT_TORQUE_REQUIRED_NEWTON_MM
+current_input_torque = MOTOR_TORQUE_NEWTON_MM
 
-stage_input_torque = current_output_torque / (GEAR_RATIO * EFFICIENCY)
+for i in range(1, STAGES_COUNT + 1):
 
-# Tangential force at sun
-effective_force = (stage_input_torque / SUN_PITCH_RADIUS_MM) / LOAD_SHARING_FACTOR
+    # 1. Calculate effective tangential force for this stage
+    effective_force = (current_input_torque / SUN_PITCH_RADIUS_MM) * LOAD_SHARING_FACTOR
 
-# 2. Create new component instances for this stage
-sun = Gear(SUN_TEETH_COUNT, SUN_FACE_WIDTH_MM, effective_force)
-planet = SecondaryGear(PLANET_TEETH_COUNT, PLANET_FACE_WIDTH_MM, effective_force)
-ring = Ring(RING_TEETH_COUNT, RING_FACE_WIDTH_MM, effective_force, RING_WALL_THICKNESS_MM)
-pin = Pin(planet, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM)
+    # 2. Create new component instances for this stage
+    sun = Gear(SUN_TEETH_COUNT, SUN_FACE_WIDTH_MM, effective_force)
+    planet = SecondaryGear(PLANET_TEETH_COUNT, PLANET_FACE_WIDTH_MM, effective_force)
+    ring = Ring(RING_TEETH_COUNT, RING_FACE_WIDTH_MM, effective_force, RING_WALL_THICKNESS_MM)
+    pin = Pin(planet, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM)
 
-carrier_hub = CarrierHub(
-    current_output_torque,
-    CARRIER_HUB_RADIUS_MM,
-    CARRIER_HUB_BOLT_COUNT,
-    CARRIER_HUB_BOLT_CIRCLE_RADIUS_MM,
-    HEAT_INSERT_DIAMETER_MM,
-    HEAT_INSERT_EMBED_DEPTH_MM,
-    AXIAL_LOAD_N,
-    MAX_BENDING_FORCE_N,  # Force, not torque
-    LIFT_RADIUS_MM  # Lever arm
-)
+    # 3. Output torque for this stage
+    stage_output_torque = current_input_torque * GEAR_RATIO
 
-# 5. Create stage and store it
-stage = Stage(STAGES_COUNT, sun, planet, ring, pin, carrier_hub)
+    carrier_hub = CarrierHub(
+        stage_output_torque,
+        CARRIER_HUB_RADIUS_MM,
+        CARRIER_HUB_BOLT_COUNT,
+        CARRIER_HUB_BOLT_CIRCLE_RADIUS_MM,
+        HEAT_INSERT_DIAMETER_MM,
+        HEAT_INSERT_EMBED_DEPTH_MM,
+        AXIAL_LOAD_N,
+        MAX_BENDING_FORCE_N,
+        BENDING_LEVER_ARM_MM)
 
-# 6. Display results
-stage.display()
+    # 5. Create stage and store it
+    stage = Stage(i, sun, planet, ring, pin, carrier_hub)
 
-if not stage.check_passed():
-    print(f"Stage {STAGES_COUNT} failed stress check ❌.")
-else:
-    print(f"Stage {STAGES_COUNT} passed successfully ✅")
+    # 6. Display results
+    stage.display()
+
+    # 7. Stop if any component fails
+    if not stage.check_passed():
+        print(f"Stage {i} failed stress check ❌.")
+        break
+    else:
+        if i == STAGES_COUNT:
+            print(f"All {STAGES_COUNT} stages passed successfully! ✅")
+        else:
+            print(f"Stage {i} passed stress check ✅. Moving to next stage...\n")
+
+    # 8. Prepare torque for next stage
+    current_input_torque = stage_output_torque * EFFICIENCY
