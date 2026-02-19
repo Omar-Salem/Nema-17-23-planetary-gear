@@ -113,17 +113,18 @@ class Gear(Component):
         100: 0.446, 150: 0.458, 200: 0.463, 300: 0.471
     }
 
-    def __init__(self, teeth_count, face_width_mm, effective_force):
+    def __init__(self, teeth_count, face_width_mm, effective_force, name):
         self.teeth_count = teeth_count
         self.face_width_mm = face_width_mm
         self.pitch_radius_mm = (MODULE_MM * self.teeth_count) / 2
         self.effective_force = effective_force
-
+        self.name = name
+        
     def passes_check(self, threshold):
         return self._calculate_bending_stress() < threshold
 
     def get_name(self):
-        return "Sun"
+        return self.name
 
     def _calculate_bending_stress(self):
         # σ = F / (b * m * y)
@@ -156,26 +157,14 @@ class Gear(Component):
         return self._calculate_bending_stress()
 
 
-class SecondaryGear(Gear):
-    def __init__(self, teeth_count, face_width_mm, effective_force):
-        super().__init__(teeth_count, face_width_mm, effective_force)
-        self.effective_force = self.effective_force / PLANETS_COUNT
-
-    def get_name(self):
-        return "Planet"
-
-
-class Ring(SecondaryGear):
+class Ring(Gear):
     def __init__(self, teeth_count, face_width_mm, effective_force, thickness):
-        super().__init__(teeth_count, face_width_mm, effective_force)
+        super().__init__(teeth_count, face_width_mm, effective_force, "Ring")
         self.thickness = thickness
         self.radial_force = self.effective_force * math.tan(math.radians(PRESSURE_ANGLE_DEGREE))
 
     def passes_check(self, threshold):
         return self._calculate_bending_stress() < threshold and self._calculate_ovalization() < threshold
-
-    def get_name(self):
-        return "Ring"
 
     def get_fem_loads(self):
         """
@@ -208,7 +197,7 @@ class Ring(SecondaryGear):
 class Pin(Component):
     def __init__(self, torque, diameter_mm, length_mm, fillet_radius_mm,
                  bolt_diameter_mm=None):
-        self.effective_force = torque / (PLANETS_COUNT )
+        self.effective_force = torque 
         self.diameter_mm = diameter_mm
         self.radius = diameter_mm / 2
         self.length_mm = length_mm
@@ -225,22 +214,22 @@ class Pin(Component):
         area = math.pi * math.pow(self.radius, 2)
         peak_stress = (4 * self.effective_force) / (3 * area)  # (Parabolic Shear Stress Theory)
         average_stress = self.effective_force / area
-        return average_stress
+        return peak_stress
 
     def _calculate_deflection(self):
         """
-        FL⁴/8EI
+        FL³/8EI
         """
         E = 2500  # Young's modulus for PLA in N/mm²
         I = self._calculate_area_moment_of_inertia(self.diameter_mm)
-        return (self.effective_force * math.pow(self.length_mm, 4)) / (8 * E * I)
+        return (self.effective_force * math.pow(self.length_mm, 3)) / (8 * E * I)
 
     def _calculate_moment(self):
         """
         Calculates max moment for a Cantilever with Uniformly Distributed Load (UDL).
-        Formula: FL²/2
+        Formula: FL/2
         """
-        return (self.effective_force * math.pow(self.length_mm, 2)) / 2
+        return (self.effective_force * self.length_mm) / 2
 
     def _calculate_area_moment_of_inertia(self, diameter_mm):
         """
@@ -441,16 +430,16 @@ current_input_torque = MOTOR_TORQUE_NEWTON_MM
 for i in range(1, STAGES_COUNT + 1):
 
     # 1. Calculate effective tangential force for this stage
-    effective_force = (current_input_torque / SUN_PITCH_RADIUS_MM) * LOAD_SHARING_FACTOR
+    tangetial_sun_force = (current_input_torque / (SUN_PITCH_RADIUS_MM* PLANETS_COUNT)) * LOAD_SHARING_FACTOR
 
     # 2. Create new component instances for this stage
-    sun = Gear(SUN_TEETH_COUNT, SUN_FACE_WIDTH_MM, effective_force)
-    planet = SecondaryGear(PLANET_TEETH_COUNT, PLANET_FACE_WIDTH_MM, effective_force)
-    ring = Ring(RING_TEETH_COUNT, RING_FACE_WIDTH_MM, effective_force, RING_WALL_THICKNESS_MM)
+    sun = Gear(SUN_TEETH_COUNT, SUN_FACE_WIDTH_MM, tangetial_sun_force,"Sun")
+    planet = Gear(PLANET_TEETH_COUNT, PLANET_FACE_WIDTH_MM, tangetial_sun_force,"Planet")
+    ring = Ring(RING_TEETH_COUNT, RING_FACE_WIDTH_MM, tangetial_sun_force, RING_WALL_THICKNESS_MM)
+    pin = Pin(2*tangetial_sun_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM)
 
     # 3. Output torque for this stage
     stage_output_torque = current_input_torque * GEAR_RATIO * EFFICIENCY
-    pin = Pin(stage_output_torque, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM)
 
     carrier_hub = CarrierHub(
         stage_output_torque,
