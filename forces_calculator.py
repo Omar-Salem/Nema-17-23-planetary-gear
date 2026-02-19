@@ -235,8 +235,7 @@ class Pin(Component):
         """
         I = π * r⁴ / 4 for solid circular cross-section
         """
-        radius = diameter_mm / 2
-        return (math.pi * math.pow(radius, 4)) / 4
+        return (math.pi * math.pow(self.radius, 4)) / 4
 
     def _calculate_sigma(self, moment):
         """
