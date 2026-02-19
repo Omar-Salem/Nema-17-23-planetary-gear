@@ -40,11 +40,15 @@ CARRIER_HUB_BOLT_CIRCLE_RADIUS_MM = 13.2
 HEAT_INSERT_DIAMETER_MM = 4.2
 HEAT_INSERT_EMBED_DEPTH_MM = 5
 
-AXIAL_LOAD_N = 0
-BENDING_FORCE_ACC_SF = 2  # Account for dynamic effects
-BENDING_FORCE_N = 40  # ~4 Kg
-MAX_BENDING_FORCE_N = BENDING_FORCE_N * BENDING_FORCE_ACC_SF
-BENDING_LEVER_ARM_MM = 100
+# AXIAL_LOAD_N = 0
+# BENDING_FORCE_ACC_SF = 2  # Account for dynamic effects
+LOAD_WEIGHT_KG = 4 
+LOAD_LEVER_ARM_MM = 100
+GRAVITY_METER_SEC_SEC = 9.81
+
+LOAD_TORQUE_N_MM = LOAD_WEIGHT_KG * GRAVITY_METER_SEC_SEC*LOAD_LEVER_ARM_MM
+
+# MAX_BENDING_FORCE_N = BENDING_FORCE_N * BENDING_FORCE_ACC_SF
 
 MAX_SIGMA_ALLOWED_MEGA_PASCAL = MATERIAL_STRENGTH_MEGA_PASCAL / SAFETY_FACTOR
 
@@ -309,103 +313,103 @@ class Pin(Component):
         }
 
 
-class CarrierHub(Component):
-    def __init__(self, torque,
-                 shaft_radius_mm,
-                 bolt_count,
-                 bolt_circle_radius_mm,
-                 insert_diameter_mm,
-                 insert_embed_depth_mm,
-                 axial_load_n=0,
-                 bending_force_n=0,
-                 bending_lever_arm_mm=0):
+# class CarrierHub(Component):
+#     def __init__(self, torque,
+#                  shaft_radius_mm,
+#                  bolt_count,
+#                  bolt_circle_radius_mm,
+#                  insert_diameter_mm,
+#                  insert_embed_depth_mm,
+#                  axial_load_n=0,
+#                  bending_force_n=0,
+#                  bending_lever_arm_mm=0):
 
-        self.torque = torque
-        self.shaft_radius_mm = shaft_radius_mm
+#         self.torque = torque
+#         self.shaft_radius_mm = shaft_radius_mm
 
-        self.bolt_count = bolt_count
-        self.bolt_circle_radius_mm = bolt_circle_radius_mm
+#         self.bolt_count = bolt_count
+#         self.bolt_circle_radius_mm = bolt_circle_radius_mm
 
-        self.insert_diameter_mm = insert_diameter_mm
-        self.insert_embed_depth_mm = insert_embed_depth_mm
+#         self.insert_diameter_mm = insert_diameter_mm
+#         self.insert_embed_depth_mm = insert_embed_depth_mm
 
-        self.axial_load_n = axial_load_n
-        self.bending_force_n = bending_force_n
-        self.bending_lever_arm_mm = bending_lever_arm_mm
+#         self.axial_load_n = axial_load_n
+#         self.bending_force_n = bending_force_n
+#         self.bending_lever_arm_mm = bending_lever_arm_mm
 
-    def get_name(self):
-        return "CarrierHub"
+#     def get_name(self):
+#         return "CarrierHub"
 
-    # ------------------------
-    # SHAFT TORSION
-    # ------------------------
-    def _calculate_shaft_shear(self):
-        return (2 * self.torque) / (
-                math.pi * math.pow(self.shaft_radius_mm, 3)
-        )
+#     # ------------------------
+#     # SHAFT TORSION
+#     # ------------------------
+#     def _calculate_shaft_shear(self):
+#         return (2 * self.torque) / (
+#                 math.pi * math.pow(self.shaft_radius_mm, 3)
+#         )
 
-    # ------------------------
-    # BOLT SHEAR FROM TORQUE
-    # ------------------------
-    def _calculate_bolt_shear(self):
-        if self.bolt_count == 0:
-            return 0
-        return self.torque / (
-                self.bolt_count * self.bolt_circle_radius_mm
-        )
+#     # ------------------------
+#     # BOLT SHEAR FROM TORQUE
+#     # ------------------------
+#     def _calculate_bolt_shear(self):
+#         if self.bolt_count == 0:
+#             return 0
+#         return self.torque / (
+#                 self.bolt_count * self.bolt_circle_radius_mm
+#         )
 
-    # ------------------------
-    # BENDING MOMENT EFFECT
-    # ------------------------
-    def _calculate_bolt_tension_from_bending(self):
-        if self.bending_force_n == 0:
-            return 0
+#     # ------------------------
+#     # BENDING MOMENT EFFECT
+#     # ------------------------
+#     def _calculate_bolt_tension_from_bending(self):
+#         if self.bending_force_n == 0:
+#             return 0
 
-        moment = self.bending_force_n * self.bending_lever_arm_mm
+#         moment = self.bending_force_n * self.bending_lever_arm_mm
 
-        # worst-case bolt (simplified full moment on one side)
-        return moment / (
-                self.bolt_circle_radius_mm * self.bolt_count
-        )
+#         # worst-case bolt (simplified full moment on one side)
+#         return moment / (
+#                 self.bolt_circle_radius_mm * self.bolt_count
+#         )
 
-    # ------------------------
-    # INSERT PULL-OUT STRESS
-    # ------------------------
-    def _calculate_insert_pullout_stress(self):
-        tension = (
-                self.axial_load_n / self.bolt_count
-                + self._calculate_bolt_tension_from_bending()
-        )
+#     # ------------------------
+#     # INSERT PULL-OUT STRESS
+#     # ------------------------
+#     def _calculate_insert_pullout_stress(self):
+#         tension = (
+#                 self.axial_load_n / self.bolt_count
+#                 + self._calculate_bolt_tension_from_bending()
+#         )
 
-        shear_area = (
-                math.pi *
-                self.insert_diameter_mm *
-                self.insert_embed_depth_mm
-        )
+#         shear_area = (
+#                 math.pi *
+#                 self.insert_diameter_mm *
+#                 self.insert_embed_depth_mm
+#         )
 
-        if shear_area == 0:
-            return 0
+#         if shear_area == 0:
+#             return 0
 
-        return tension / shear_area
+#         return tension / shear_area
 
-    # ------------------------
-    # GOVERNING STRESS
-    # ------------------------
-    def get_governing_stress(self):
-        return max(
-            self._calculate_shaft_shear(),
-            self._calculate_insert_pullout_stress()
-        )
+#     # ------------------------
+#     # GOVERNING STRESS
+#     # ------------------------
+#     def get_governing_stress(self):
+#         return max(
+#             self._calculate_shaft_shear(),
+#             self._calculate_insert_pullout_stress()
+#         )
 
-    def get_fem_loads(self):
-        return {
-            "shaft_tau": self._calculate_shaft_shear(),
-            "bolt_shear": self._calculate_bolt_shear(),
-            "insert_pullout_sigma": self._calculate_insert_pullout_stress()
-        }
+#     def get_fem_loads(self):
+#         return {
+#             "shaft_tau": self._calculate_shaft_shear(),
+#             "bolt_shear": self._calculate_bolt_shear(),
+#             "insert_pullout_sigma": self._calculate_insert_pullout_stress()
+#         }
 
-    def passes_check(self, threshold):
-        return self.get_governing_stress() < threshold
+#     def passes_check(self, threshold):
+#         return self.get_governing_stress() < threshold
 
 
 class Stage:
@@ -424,7 +428,13 @@ class Stage:
         return all([c.passes_check(MAX_SIGMA_ALLOWED_MEGA_PASCAL) for c in self.components])
 
 
-current_input_torque = MOTOR_TORQUE_NEWTON_MM
+TOTAL_RATIO =math.pow( GEAR_RATIO , STAGES_COUNT)
+TOTAL_EFFICIENCY = math.pow( EFFICIENCY , STAGES_COUNT)
+
+required_motor_torque = LOAD_TORQUE_N_MM / (TOTAL_RATIO * TOTAL_EFFICIENCY)
+
+current_input_torque = required_motor_torque
+
 
 for i in range(1, STAGES_COUNT + 1):
 
@@ -440,19 +450,19 @@ for i in range(1, STAGES_COUNT + 1):
     # 3. Output torque for this stage
     stage_output_torque = current_input_torque * GEAR_RATIO * EFFICIENCY
 
-    carrier_hub = CarrierHub(
-        stage_output_torque,
-        CARRIER_HUB_RADIUS_MM,
-        CARRIER_HUB_BOLT_COUNT,
-        CARRIER_HUB_BOLT_CIRCLE_RADIUS_MM,
-        HEAT_INSERT_DIAMETER_MM,
-        HEAT_INSERT_EMBED_DEPTH_MM,
-        AXIAL_LOAD_N,
-        MAX_BENDING_FORCE_N,
-        BENDING_LEVER_ARM_MM)
+    # carrier_hub = CarrierHub(
+    #     stage_output_torque,
+    #     CARRIER_HUB_RADIUS_MM,
+    #     CARRIER_HUB_BOLT_COUNT,
+    #     CARRIER_HUB_BOLT_CIRCLE_RADIUS_MM,
+    #     HEAT_INSERT_DIAMETER_MM,
+    #     HEAT_INSERT_EMBED_DEPTH_MM,
+    #     AXIAL_LOAD_N,
+    #     MAX_BENDING_FORCE_N,
+    #     BENDING_LEVER_ARM_MM)
 
     # 5. Create stage and store it
-    stage = Stage(i, sun, planet, ring, pin, carrier_hub)
+    stage = Stage(i, sun, planet, ring, pin)
 
     # 6. Display results
     stage.display()
