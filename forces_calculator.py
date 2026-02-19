@@ -18,10 +18,10 @@ SUN_TEETH_COUNT = 12
 SUN_FACE_WIDTH_MM = 13
 SUN_PITCH_RADIUS_MM = (MODULE_MM * SUN_TEETH_COUNT) / 2
 
-RING_TEETH_COUNT = (GEAR_RATIO - 1) * SUN_TEETH_COUNT
+RING_TEETH_COUNT = int((GEAR_RATIO - 1) * SUN_TEETH_COUNT)
 RING_FACE_WIDTH_MM = 48
 
-PLANET_TEETH_COUNT = (GEAR_RATIO - 2) * SUN_TEETH_COUNT / 2
+PLANET_TEETH_COUNT = int((GEAR_RATIO - 2) * SUN_TEETH_COUNT / 2)
 PLANET_FACE_WIDTH_MM = 8
 
 CARRIER_ARM_WIDTH_MM = 6.3
@@ -206,21 +206,23 @@ class Ring(SecondaryGear):
 
 
 class Pin(Component):
-    def __init__(self, torque, distance_from_center, diameter_mm, length_mm, fillet_radius_mm,
+    def __init__(self, torque, diameter_mm, length_mm, fillet_radius_mm,
                  bolt_diameter_mm=None):
-        self.effective_force = torque / (PLANETS_COUNT * distance_from_center)
+        self.effective_force = torque / (PLANETS_COUNT )
         self.diameter_mm = diameter_mm
+        self.radius = diameter_mm / 2
         self.length_mm = length_mm
         self.fillet_radius_mm = fillet_radius_mm
         self.bolt_diameter_mm = bolt_diameter_mm
 
     def _calculate_bending(self):
-        moment = self._calculate_moment()
-        return self._calculate_sigma(moment)
+        """
+        4FL/3πr³ 
+        """
+        return 4 * self.effective_force * self.length_mm / (3 * math.pi * math.pow(self.radius, 3))
 
     def _calculate_shear(self):
-        radius = self.diameter_mm / 2
-        area = math.pi * math.pow(radius, 2)
+        area = math.pi * math.pow(self.radius, 2)
         peak_stress = (4 * self.effective_force) / (3 * area)  # (Parabolic Shear Stress Theory)
         average_stress = self.effective_force / area
         return average_stress
@@ -230,6 +232,7 @@ class Pin(Component):
         FL⁴/8EI
         """
         E = 2500  # Young's modulus for PLA in N/mm²
+        I = self._calculate_area_moment_of_inertia(self.diameter_mm)
         return (self.effective_force * math.pow(self.length_mm, 4)) / (8 * E * I)
 
     def _calculate_moment(self):
@@ -297,6 +300,7 @@ class Pin(Component):
             self._calculate_von_mises(),
             self._calculate_bearing()
         )
+
     def passes_check(self, threshold):
         return self._calculate_von_mises() < threshold and self._calculate_bearing() < threshold
 
@@ -318,7 +322,7 @@ class Pin(Component):
 
 
 class CarrierHub(Component):
-    def __init__(self, output_torque,
+    def __init__(self, torque,
                  shaft_radius_mm,
                  bolt_count,
                  bolt_circle_radius_mm,
@@ -328,7 +332,7 @@ class CarrierHub(Component):
                  bending_force_n=0,
                  bending_lever_arm_mm=0):
 
-        self.output_torque = output_torque
+        self.torque = torque
         self.shaft_radius_mm = shaft_radius_mm
 
         self.bolt_count = bolt_count
@@ -348,7 +352,7 @@ class CarrierHub(Component):
     # SHAFT TORSION
     # ------------------------
     def _calculate_shaft_shear(self):
-        return (2 * self.output_torque) / (
+        return (2 * self.torque) / (
                 math.pi * math.pow(self.shaft_radius_mm, 3)
         )
 
@@ -358,7 +362,7 @@ class CarrierHub(Component):
     def _calculate_bolt_shear(self):
         if self.bolt_count == 0:
             return 0
-        return self.output_torque / (
+        return self.torque / (
                 self.bolt_count * self.bolt_circle_radius_mm
         )
 
@@ -446,7 +450,7 @@ for i in range(1, STAGES_COUNT + 1):
 
     # 3. Output torque for this stage
     stage_output_torque = current_input_torque * GEAR_RATIO * EFFICIENCY
-    pin = Pin(stage_output_torque, PIN_DISTANCE_FROM_CENTER_MM, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM)
+    pin = Pin(stage_output_torque, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM)
 
     carrier_hub = CarrierHub(
         stage_output_torque,
