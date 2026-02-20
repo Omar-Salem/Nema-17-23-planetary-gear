@@ -163,7 +163,6 @@ class Gear(Component):
     def get_governing_stress(self):
         return self._calculate_bending_stress()
 
-
 class Ring(Gear):
     def __init__(self, teeth_count, face_width_mm, effective_force, thickness):
         super().__init__(teeth_count, face_width_mm, effective_force, "Ring")
@@ -200,167 +199,191 @@ class Ring(Gear):
             self._calculate_ovalization()
         )
 
-
 class Pin(Component):
-    YOUNG_MODULUS_PLA_N_MM = 2500
-    YOUNG_MODULUS_STEEL_N_MM = 200000
 
-    def __init__(self, torque, diameter_mm, length_mm, fillet_radius_mm,
+    # Material properties
+    YOUNG_MODULUS_PLA_N_MM = 2500       # MPa
+    YOUNG_MODULUS_STEEL_N_MM = 200000   # MPa
+
+    POISSONS_RATIO_PLA = 0.35
+    POISSONS_RATIO_STEEL = 0.30
+    
+    SIGMA_ALLOW_STEEL = 250
+
+    # Derived shear moduli
+    SHEAR_MODULUS_PLA = YOUNG_MODULUS_PLA_N_MM / (2 * (1 + POISSONS_RATIO_PLA))
+    SHEAR_MODULUS_STEEL = YOUNG_MODULUS_STEEL_N_MM / (2 * (1 + POISSONS_RATIO_STEEL))
+
+    def __init__(self, force_N, diameter_mm, length_mm, fillet_radius_mm,
                  steel_bolt_diameter_mm=None):
-        self.effective_force = torque
-        self.diameter_mm = diameter_mm
-        self.radius = diameter_mm / 2
-        self.length_mm = length_mm
-        self.fillet_radius_mm = fillet_radius_mm
-        self.steel_bolt_diameter_mm = steel_bolt_diameter_mm
 
-    def _calculate_bending(self):
-        """
-        4FL/3πr³ 
-        """
-        return 4 * self.effective_force * self.length_mm / (3 * math.pi * math.pow(self.radius, 3))
+        self.F = force_N
+        self.D = diameter_mm
+        self.R = diameter_mm / 2
+        self.L = length_mm
+        self.fillet_radius = fillet_radius_mm
+        self.d_bolt = steel_bolt_diameter_mm
+        self.r_bolt = steel_bolt_diameter_mm / 2 if steel_bolt_diameter_mm else 0
 
-    def _calculate_shear(self):
-        area = math.pi * math.pow(self.radius, 2)
-        peak_stress = (4 * self.effective_force) / (3 * area)  # (Parabolic Shear Stress Theory)
-        average_stress = self.effective_force / area
-        return peak_stress
+    # ---------------------------------------------------
+    # Geometry helpers
+    # ---------------------------------------------------
 
-    def _calculate_deflection(self):
-        """
-        Cantilever with UDL approximation:
-        δ = FL³ / (8 E I)
-        """
+    def _area(self, r):
+        return math.pi * r**2
 
-        I_pin = self._calculate_area_moment_of_inertia(self.diameter_mm)
+    def _inertia(self, r):
+        return math.pi * r**4 / 4
 
-        if self.steel_bolt_diameter_mm:
-            I_bolt = self._calculate_area_moment_of_inertia(self.steel_bolt_diameter_mm)
+    # ---------------------------------------------------
+    # BENDING (Transformed section)
+    # ---------------------------------------------------
 
-            # Composite stiffness: E1I1 + E2I2
-            EI_total = (
-                    self.YOUNG_MODULUS_PLA_N_MM * I_pin +
-                    self.YOUNG_MODULUS_STEEL_N_MM * I_bolt
-            )
-        else:
-            EI_total = self.YOUNG_MODULUS_PLA_N_MM * I_pin
+    def _bending_stresses(self):
 
-        return (self.effective_force *  math.pow(self.length_mm, 3)) / (8 * EI_total)
+        M = self.F * self.L / 2  # cantilever end load
 
-    def _calculate_moment(self):
-        """
-        Calculates max moment for a Cantilever with Uniformly Distributed Load (UDL).
-        Formula: FL/2
-        """
-        return (self.effective_force * self.length_mm) / 2
+        I_outer = self._inertia(self.R)
 
-    def _calculate_area_moment_of_inertia(self, diameter_mm):
-        """
-        I = π * r⁴ / 4 for solid circular cross-section
-        """
-        radius = diameter_mm / 2
-        return (math.pi * math.pow(radius, 4)) / 4
+        if self.d_bolt:
+            I_inner = self._inertia(self.r_bolt)
+            n = self.YOUNG_MODULUS_STEEL_N_MM / self.YOUNG_MODULUS_PLA_N_MM
 
-    def _calculate_sigma(self, moment):
-        """
-        Composite bending stress for concentric bonded materials.
-        Returns maximum normal stress among materials.
-        """
+            # Transformed inertia (to PLA reference)
+            I_trans = (I_outer - I_inner) + n * I_inner
 
-        # Geometry
-        I_pin = self._calculate_area_moment_of_inertia(self.diameter_mm)
-        c_pin = self.diameter_mm / 2
+            sigma_pla = M * self.R / I_trans
+            sigma_steel = n * M * self.r_bolt / I_trans
 
-        if self.steel_bolt_diameter_mm:
-            I_bolt = self._calculate_area_moment_of_inertia(self.steel_bolt_diameter_mm)
-            c_bolt = self.steel_bolt_diameter_mm / 2
-
-            # Composite bending stiffness
-            EI_total = (
-                    self.YOUNG_MODULUS_PLA_N_MM * I_pin +
-                    self.YOUNG_MODULUS_STEEL_N_MM * I_bolt
-            )
-
-            # Curvature
-            kappa = moment / EI_total
-
-            # Stress in each material
-            sigma_pin = self.YOUNG_MODULUS_PLA_N_MM * kappa * c_pin
-            sigma_bolt = self.YOUNG_MODULUS_STEEL_N_MM * kappa * c_bolt
-
-            return max(abs(sigma_pin), abs(sigma_bolt))
+            return sigma_pla, sigma_steel
 
         else:
-            # Single material (PLA only)
-            EI_total = self.YOUNG_MODULUS_PLA_N_MM * I_pin
-            kappa = moment / EI_total
-            sigma_pin = self.YOUNG_MODULUS_PLA_N_MM * kappa * c_pin
-            return abs(sigma_pin)
+            sigma = M * self.R / I_outer
+            return sigma, 0
 
-    def _get_kt(self):
-        """
-        Estimates the stress concentration factor (Kt) for a stepped shaft in bending.
-        Based on r/d (fillet radius / diameter).
-        """
-        r_d = self.fillet_radius_mm / self.diameter_mm
-        if r_d < 0.01: return 3.0  # Very sharp
-        if r_d < 0.05: return 2.2  # Typical machined corner
-        if r_d < 0.1:  return 1.7  # Small fillet
-        return 1.5  # Generous fillet
+    # ---------------------------------------------------
+    # SHEAR FORCE SPLIT (G*A weighting)
+    # ---------------------------------------------------
 
-    def _calculate_von_mises(self):
-        moment = self._calculate_moment()
-        sigma_nominal = self._calculate_sigma(moment)
-        tau = self._calculate_shear()
+    def _shear_stresses(self):
 
-        # Apply Kt only to the pin (fillet), assume bolt is smooth and concentric
-        kt = self._get_kt()
-        sigma_max = sigma_nominal * kt
+        F = self.F
 
-        # Von Mises combining bending + shear
-        return math.sqrt(sigma_max ** 2 + 3 * (tau ** 2))
+        A_total = self._area(self.R)
 
-    def _calculate_bearing(self):
-        """
-        Bearing stress over the projected area.
-        """
-        area_proj = (self.diameter_mm) * (self.length_mm)
-        return self.effective_force / area_proj
+        if self.d_bolt:
+            A_steel = self._area(self.r_bolt)
+            A_pla = A_total - A_steel
+
+            share_steel = self.G_STEEL * A_steel
+            share_pla = self.SHEAR_MODULUS_PLA * A_pla
+
+            F_steel = F * share_steel / (share_steel + share_pla)
+            F_pla = F - F_steel
+
+            tau_steel = 4 * F_steel / (3 * A_steel)
+            tau_pla = 4 * F_pla / (3 * A_pla)
+
+            return tau_pla, tau_steel
+
+        else:
+            tau = 4 * F / (3 * A_total)
+            return tau, 0
+
+    # ---------------------------------------------------
+    # Stress concentration (PLA only)
+    # ---------------------------------------------------
+
+    def _kt(self):
+        r_d = self.fillet_radius / self.D
+        if r_d < 0.01: return 3.0
+        if r_d < 0.05: return 2.2
+        if r_d < 0.1:  return 1.7
+        return 1.5
+
+    # ---------------------------------------------------
+    # VON MISES (per material)
+    # ---------------------------------------------------
+
+    def _von_mises(self):
+
+        sigma_pla, sigma_steel = self._bending_stresses()
+        tau_pla, tau_steel = self._shear_stresses()
+
+        # Apply Kt only to PLA bending
+        sigma_pla *= self._kt()
+
+        vm_pla = math.sqrt(sigma_pla**2 + 3 * tau_pla**2)
+        vm_steel = math.sqrt(sigma_steel**2 + 3 * tau_steel**2)
+
+        return vm_pla, vm_steel
+
+    # ---------------------------------------------------
+    # Bearing (PLA governs)
+    # ---------------------------------------------------
+
+    def _bearing(self):
+        area_proj = self.D * self.L
+        return self.F / area_proj
+
+    # ---------------------------------------------------
+    # Deflection (true composite EI)
+    # ---------------------------------------------------
+
+    def _deflection(self):
+
+        I_outer = self._inertia(self.R)
+
+        if self.d_bolt:
+            I_inner = self._inertia(self.r_bolt)
+
+            EI = (
+                self.YOUNG_MODULUS_PLA_N_MM * (I_outer - I_inner) +
+                self.YOUNG_MODULUS_STEEL_N_MM * I_inner
+            )
+        else:
+            EI = self.YOUNG_MODULUS_PLA_N_MM * I_outer
+
+        return self.F * self.L**3 / (3 * EI)
+
+    # ---------------------------------------------------
+    # Governing stress utilization
+    # ---------------------------------------------------
 
     def get_governing_stress(self):
-        return max(
-            self._calculate_von_mises(),
-            self._calculate_bearing()
-        )
 
-    def passes_check(self, stress_threshold, deflection_threshold=None):
-        stress_ok = (
-                self._calculate_von_mises() < stress_threshold and
-                self._calculate_bearing() < stress_threshold
-        )
+        vm_pla, vm_steel = self._von_mises()
+        bearing = self._bearing()
 
-        if deflection_threshold is not None:
-            return stress_ok and self._calculate_deflection() < deflection_threshold
+        util_pla = max(vm_pla, bearing) / MAX_SIGMA_ALLOWED_MEGA_PASCAL
+        util_steel = vm_steel / self.SIGMA_ALLOW_STEEL
 
-        return stress_ok
+        return max(util_pla, util_steel) * MAX_SIGMA_ALLOWED_MEGA_PASCAL
+
+    def passes_check(self, threshold=None):
+        vm_pla, vm_steel = self._von_mises()
+        bearing = self._bearing()
+
+        if vm_pla > MAX_SIGMA_ALLOWED_MEGA_PASCAL:
+            return False
+        if bearing > MAX_SIGMA_ALLOWED_MEGA_PASCAL:
+            return False
+        if vm_steel > self.SIGMA_ALLOW_STEEL:
+            return False
+
+        return True
 
     def get_name(self):
         return "Pin"
 
     def get_fem_loads(self):
-        """
-        Returns bending moment and shear for FEM.
-        """
-        tau_pin = self._calculate_shear()
-        M_pin = self._calculate_moment()
-        sigma_bending = self._calculate_sigma(M_pin)
+        vm_pla, vm_steel = self._von_mises()
         return {
-            "M_bending": M_pin,
-            "sigma_bending": sigma_bending,
-            "tau_shear": tau_pin,
-            "deflection": self._calculate_deflection()
+            "VM_PLA": vm_pla,
+            "VM_STEEL": vm_steel,
+            "Bearing": self._bearing(),
+            "Deflection": self._deflection()
         }
-
 
 class CarrierHub(Component):
     def __init__(self,
@@ -501,7 +524,6 @@ class CarrierHub(Component):
             "insert_bearing": self._insert_bearing()
         }
 
-
 class Stage:
     def __init__(self, index, *components):
         self.index = index
@@ -534,7 +556,7 @@ for i in range(1, STAGES_COUNT + 1):
     sun = Gear(SUN_TEETH_COUNT, SUN_FACE_WIDTH_MM, tangetial_sun_force, "Sun")
     planet = Gear(PLANET_TEETH_COUNT, PLANET_FACE_WIDTH_MM, tangetial_sun_force, "Planet")
     ring = Ring(RING_TEETH_COUNT, RING_FACE_WIDTH_MM, tangetial_sun_force, RING_WALL_THICKNESS_MM)
-    pin = Pin(2 * tangetial_sun_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM,3)
+    pin = Pin(2 * tangetial_sun_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM)
 
     # 3. Output torque for this stage
     stage_output_torque = current_input_torque * GEAR_RATIO * EFFICIENCY
