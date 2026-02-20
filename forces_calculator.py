@@ -245,7 +245,7 @@ class Pin(Component):
         else:
             EI_total = self.YOUNG_MODULUS_PLA_N_MM * I_pin
 
-        return (self.effective_force * self.length_mm ** 3) / (8 * EI_total)
+        return (self.effective_force *  math.pow(self.length_mm, 3)) / (8 * EI_total)
 
     def _calculate_moment(self):
         """
@@ -534,7 +534,7 @@ for i in range(1, STAGES_COUNT + 1):
     sun = Gear(SUN_TEETH_COUNT, SUN_FACE_WIDTH_MM, tangetial_sun_force, "Sun")
     planet = Gear(PLANET_TEETH_COUNT, PLANET_FACE_WIDTH_MM, tangetial_sun_force, "Planet")
     ring = Ring(RING_TEETH_COUNT, RING_FACE_WIDTH_MM, tangetial_sun_force, RING_WALL_THICKNESS_MM)
-    pin = Pin(2 * tangetial_sun_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM)
+    pin = Pin(2 * tangetial_sun_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM,3)
 
     # 3. Output torque for this stage
     stage_output_torque = current_input_torque * GEAR_RATIO * EFFICIENCY
