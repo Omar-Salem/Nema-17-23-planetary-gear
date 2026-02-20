@@ -1,10 +1,18 @@
 import math
 from abc import ABC, abstractmethod
 
+# -------------------------
+# GLOBAL PARAMETERS
+# -------------------------
 MATERIAL_STRENGTH_MEGA_PASCAL = 45  # N/mm²
 SAFETY_FACTOR = 3
 EFFICIENCY = .95
+GRAVITY_METER_SEC_SEC = 9.81
+MAX_SIGMA_ALLOWED_MEGA_PASCAL = MATERIAL_STRENGTH_MEGA_PASCAL / SAFETY_FACTOR
 
+# -------------------------
+# GEAR SPECS
+# -------------------------
 GEAR_RATIO = 6
 
 PLANETS_COUNT = 3
@@ -39,17 +47,13 @@ CARRIER_HUB_BOLT_CIRCLE_RADIUS_MM = 13.2
 HEAT_INSERT_DIAMETER_MM = 4.2
 HEAT_INSERT_EMBED_DEPTH_MM = 5
 
-# AXIAL_LOAD_N = 0
-# BENDING_FORCE_ACC_SF = 2  # Account for dynamic effects
+# -------------------------
+# LOAD
+# -------------------------
 LOAD_WEIGHT_KG = 4
 LOAD_LEVER_ARM_MM = 100
-GRAVITY_METER_SEC_SEC = 9.81
 
 LOAD_TORQUE_N_MM = LOAD_WEIGHT_KG * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
-
-# MAX_BENDING_FORCE_N = BENDING_FORCE_N * BENDING_FORCE_ACC_SF
-
-MAX_SIGMA_ALLOWED_MEGA_PASCAL = MATERIAL_STRENGTH_MEGA_PASCAL / SAFETY_FACTOR
 
 
 class Component:
@@ -199,13 +203,15 @@ class Ring(Gear):
 
 class Pin(Component):
     def __init__(self, torque, diameter_mm, length_mm, fillet_radius_mm,
-                 bolt_diameter_mm=None):
+                 steel_bolt_diameter_mm=None):
         self.effective_force = torque
         self.diameter_mm = diameter_mm
         self.radius = diameter_mm / 2
         self.length_mm = length_mm
         self.fillet_radius_mm = fillet_radius_mm
-        self.bolt_diameter_mm = bolt_diameter_mm
+        self.steel_bolt_diameter_mm = steel_bolt_diameter_mm
+        self.YOUNG_MODULUS_PLA_N_MM = 2500
+        self.YOUNG_MODULUS_STEEL_N_MM = 200000
 
     def _calculate_bending(self):
         """
@@ -221,11 +227,24 @@ class Pin(Component):
 
     def _calculate_deflection(self):
         """
-        FL³/8EI
+        Cantilever with UDL approximation:
+        δ = FL³ / (8 E I)
         """
-        E = 2500  # Young's modulus for PLA in N/mm²
-        I = self._calculate_area_moment_of_inertia(self.diameter_mm)
-        return (self.effective_force * math.pow(self.length_mm, 3)) / (8 * E * I)
+
+        I_pin = self._calculate_area_moment_of_inertia(self.diameter_mm)
+
+        if self.steel_bolt_diameter_mm:
+            I_bolt = self._calculate_area_moment_of_inertia(self.steel_bolt_diameter_mm)
+
+            # Composite stiffness: E1I1 + E2I2
+            EI_total = (
+                   self.YOUNG_MODULUS_PLA_N_MM * I_pin +
+                   self.YOUNG_MODULUS_STEEL_N_MM * I_bolt
+            )
+        else:
+            EI_total = self.YOUNG_MODULUS_PLA_N_MM * I_pin
+
+        return (self.effective_force * self.length_mm ** 3) / (8 * EI_total)
 
     def _calculate_moment(self):
         """
@@ -238,23 +257,44 @@ class Pin(Component):
         """
         I = π * r⁴ / 4 for solid circular cross-section
         """
-        return (math.pi * math.pow(self.radius, 4)) / 4
+        radius = diameter_mm / 2
+        return (math.pi * math.pow(radius, 4)) / 4
 
     def _calculate_sigma(self, moment):
         """
-        Bending stress using combined inertia of pin + bolt if present.
+        Composite bending stress for concentric bonded materials.
+        Returns maximum normal stress among materials.
         """
+
+        # Geometry
         I_pin = self._calculate_area_moment_of_inertia(self.diameter_mm)
+        c_pin = self.diameter_mm / 2
 
-        if self.bolt_diameter_mm:
-            I_bolt = self._calculate_area_moment_of_inertia(self.bolt_diameter_mm)
-            I_eff = I_pin + I_bolt
-            c_max = max(self.diameter_mm, self.bolt_diameter_mm) / 2
+        if self.steel_bolt_diameter_mm:
+            I_bolt = self._calculate_area_moment_of_inertia(self.steel_bolt_diameter_mm)
+            c_bolt = self.steel_bolt_diameter_mm / 2
+
+            # Composite bending stiffness
+            EI_total = (
+                    self.YOUNG_MODULUS_PLA_N_MM * I_pin +
+                    self.YOUNG_MODULUS_STEEL_N_MM * I_bolt
+            )
+
+            # Curvature
+            kappa = moment / EI_total
+
+            # Stress in each material
+            sigma_pin = self.YOUNG_MODULUS_PLA_N_MM * kappa * c_pin
+            sigma_bolt = self.YOUNG_MODULUS_STEEL_N_MM * kappa * c_bolt
+
+            return max(abs(sigma_pin), abs(sigma_bolt))
+
         else:
-            I_eff = I_pin
-            c_max = self.diameter_mm / 2
-
-        return moment * c_max / I_eff
+            # Single material (PLA only)
+            EI_total = self.YOUNG_MODULUS_PLA_N_MM * I_pin
+            kappa = moment / EI_total
+            sigma_pin = self.YOUNG_MODULUS_PLA_N_MM * kappa * c_pin
+            return abs(sigma_pin)
 
     def _get_kt(self):
         """
@@ -292,8 +332,16 @@ class Pin(Component):
             self._calculate_bearing()
         )
 
-    def passes_check(self, threshold):
-        return self._calculate_von_mises() < threshold and self._calculate_bearing() < threshold
+    def passes_check(self, stress_threshold, deflection_threshold=None):
+        stress_ok = (
+                self._calculate_von_mises() < stress_threshold and
+                self._calculate_bearing() < stress_threshold
+        )
+
+        if deflection_threshold is not None:
+            return stress_ok and self._calculate_deflection() < deflection_threshold
+
+        return stress_ok
 
     def get_name(self):
         return "Pin"
@@ -308,7 +356,8 @@ class Pin(Component):
         return {
             "M_bending": M_pin,
             "sigma_bending": sigma_bending,
-            "tau_shear": tau_pin
+            "tau_shear": tau_pin,
+            "deflection": self._calculate_deflection()
         }
 
 
