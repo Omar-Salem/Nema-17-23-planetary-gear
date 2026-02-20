@@ -275,7 +275,7 @@ class Pin(Component):
             A_steel = self._area(self.r_bolt)
             A_pla = A_total - A_steel
 
-            share_steel = self.G_STEEL * A_steel
+            share_steel = self.SHEAR_MODULUS_STEEL * A_steel
             share_pla = self.SHEAR_MODULUS_PLA * A_pla
 
             F_steel = F * share_steel / (share_steel + share_pla)
