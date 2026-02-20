@@ -202,6 +202,9 @@ class Ring(Gear):
 
 
 class Pin(Component):
+    YOUNG_MODULUS_PLA_N_MM = 2500
+    YOUNG_MODULUS_STEEL_N_MM = 200000
+
     def __init__(self, torque, diameter_mm, length_mm, fillet_radius_mm,
                  steel_bolt_diameter_mm=None):
         self.effective_force = torque
@@ -210,8 +213,6 @@ class Pin(Component):
         self.length_mm = length_mm
         self.fillet_radius_mm = fillet_radius_mm
         self.steel_bolt_diameter_mm = steel_bolt_diameter_mm
-        self.YOUNG_MODULUS_PLA_N_MM = 2500
-        self.YOUNG_MODULUS_STEEL_N_MM = 200000
 
     def _calculate_bending(self):
         """
@@ -238,8 +239,8 @@ class Pin(Component):
 
             # Composite stiffness: E1I1 + E2I2
             EI_total = (
-                   self.YOUNG_MODULUS_PLA_N_MM * I_pin +
-                   self.YOUNG_MODULUS_STEEL_N_MM * I_bolt
+                    self.YOUNG_MODULUS_PLA_N_MM * I_pin +
+                    self.YOUNG_MODULUS_STEEL_N_MM * I_bolt
             )
         else:
             EI_total = self.YOUNG_MODULUS_PLA_N_MM * I_pin
