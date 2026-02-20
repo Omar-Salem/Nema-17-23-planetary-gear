@@ -364,9 +364,8 @@ class Pin(Component):
 
 class CarrierHub(Component):
     def __init__(self,
-                 torque_nmm,
-                 transverse_force_n,
-                 transverse_lever_arm_mm,
+                 torque_n_mm,
+                 load_torque_n_mm,
                  shaft_radius_mm,
                  bolt_count,
                  bolt_circle_radius_mm,
@@ -374,9 +373,8 @@ class CarrierHub(Component):
                  insert_embed_depth_mm):
 
         # Applied loads
-        self.torque = torque_nmm
-        self.F = transverse_force_n
-        self.L = transverse_lever_arm_mm
+        self.torque = torque_n_mm
+        self.load_torque_n_mm = load_torque_n_mm
 
         # Shaft geometry
         self.shaft_radius = shaft_radius_mm
@@ -398,7 +396,7 @@ class CarrierHub(Component):
     # ------------------------
     def _shaft_torsion(self):
         return (2 * self.torque) / (
-                math.pi * self.shaft_radius ** 3
+                math.pi * math.pow(self.shaft_radius, 3)
         )
 
     # ------------------------
@@ -406,9 +404,8 @@ class CarrierHub(Component):
     # σ = 4M / (π r³)
     # ------------------------
     def _shaft_bending(self):
-        M = self.F * self.L
-        return (4 * M) / (
-                math.pi * self.shaft_radius ** 3
+        return (4 * self.load_torque_n_mm) / (
+                math.pi * math.pow(self.shaft_radius, 3)
         )
 
     # ------------------------
@@ -438,8 +435,7 @@ class CarrierHub(Component):
     def _bolt_tension_from_bending(self):
         if self.bolt_count == 0:
             return 0
-        M = self.F * self.L
-        return M / (
+        return self.load_torque_n_mm / (
                 self.bolt_count * self.bolt_circle_radius
         )
 
@@ -525,9 +521,8 @@ for i in range(1, STAGES_COUNT + 1):
     stage_output_torque = current_input_torque * GEAR_RATIO * EFFICIENCY
 
     carrier_hub = CarrierHub(
-        torque_nmm=stage_output_torque,
-        transverse_force_n=LOAD_WEIGHT_KG * GRAVITY_METER_SEC_SEC,
-        transverse_lever_arm_mm=LOAD_LEVER_ARM_MM,
+        torque_n_mm=stage_output_torque,
+        load_torque_n_mm=LOAD_TORQUE_N_MM,
         shaft_radius_mm=CARRIER_HUB_RADIUS_MM,
         bolt_count=CARRIER_HUB_BOLT_COUNT,
         bolt_circle_radius_mm=CARRIER_HUB_BOLT_CIRCLE_RADIUS_MM,
