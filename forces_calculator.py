@@ -440,6 +440,23 @@ class CarrierHub(Component):
         )
 
     # ------------------------
+    # BEARING STRESS
+    # σ = F / (d h)
+    # ------------------------
+    def _insert_bearing(self):
+        shear_force = self._bolt_shear_force()
+
+        projected_area = (
+            self.insert_diameter *
+            self.insert_embed_depth
+        )
+
+        if projected_area == 0:
+            return 0
+
+        return shear_force / projected_area
+    
+    # ------------------------
     # INSERT PULL-OUT STRESS
     # σ = F / (π d h)
     # ------------------------
@@ -463,7 +480,8 @@ class CarrierHub(Component):
     def get_governing_stress(self):
         return max(
             self._shaft_von_mises(),
-            self._insert_pullout()
+            self._insert_pullout(),
+            self._insert_bearing()
         )
 
     def passes_check(self, threshold):
@@ -479,7 +497,8 @@ class CarrierHub(Component):
             "shaft_torsion": self._shaft_torsion(),
             "bolt_shear_force": self._bolt_shear_force(),
             "bolt_tension": self._bolt_tension_from_bending(),
-            "insert_pullout": self._insert_pullout()
+            "insert_pullout": self._insert_pullout(),
+            "insert_bearing": self._insert_bearing()
         }
 
 
@@ -520,18 +539,8 @@ for i in range(1, STAGES_COUNT + 1):
     # 3. Output torque for this stage
     stage_output_torque = current_input_torque * GEAR_RATIO * EFFICIENCY
 
-    carrier_hub = CarrierHub(
-        torque_n_mm=stage_output_torque,
-        load_torque_n_mm=LOAD_TORQUE_N_MM,
-        shaft_radius_mm=CARRIER_HUB_RADIUS_MM,
-        bolt_count=CARRIER_HUB_BOLT_COUNT,
-        bolt_circle_radius_mm=CARRIER_HUB_BOLT_CIRCLE_RADIUS_MM,
-        insert_diameter_mm=HEAT_INSERT_DIAMETER_MM,
-        insert_embed_depth_mm=HEAT_INSERT_EMBED_DEPTH_MM
-    )
-
     # 5. Create stage and store it
-    stage = Stage(i, sun, planet, ring, pin, carrier_hub)
+    stage = Stage(i, sun, planet, ring, pin)
 
     # 6. Display results
     stage.display()
@@ -542,7 +551,20 @@ for i in range(1, STAGES_COUNT + 1):
         break
     else:
         if i == STAGES_COUNT:
-            print(f"All {STAGES_COUNT} stages passed successfully! ✅")
+            carrier_hub = CarrierHub(
+                torque_n_mm=stage_output_torque,
+                load_torque_n_mm=LOAD_TORQUE_N_MM,
+                shaft_radius_mm=CARRIER_HUB_RADIUS_MM,
+                bolt_count=CARRIER_HUB_BOLT_COUNT,
+                bolt_circle_radius_mm=CARRIER_HUB_BOLT_CIRCLE_RADIUS_MM,
+                insert_diameter_mm=HEAT_INSERT_DIAMETER_MM,
+                insert_embed_depth_mm=HEAT_INSERT_EMBED_DEPTH_MM
+            )
+            carrier_hub.display(MAX_SIGMA_ALLOWED_MEGA_PASCAL)
+            if carrier_hub.passes_check(MAX_SIGMA_ALLOWED_MEGA_PASCAL):
+                print(f"All {STAGES_COUNT} stages passed successfully! ✅")
+            else:
+                print(f"Carrier hub failed stress check ❌.")   
         else:
             print(f"Stage {i} passed stress check ✅. Moving to next stage...\n")
 
