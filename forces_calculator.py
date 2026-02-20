@@ -1,8 +1,7 @@
 import math
 from abc import ABC, abstractmethod
 
-MOTOR_TORQUE_NEWTON_MM = 17
-MATERIAL_STRENGTH_MEGA_PASCAL = 38  # N/mm²
+MATERIAL_STRENGTH_MEGA_PASCAL = 45  # N/mm²
 SAFETY_FACTOR = 3
 EFFICIENCY = .95
 
@@ -42,11 +41,11 @@ HEAT_INSERT_EMBED_DEPTH_MM = 5
 
 # AXIAL_LOAD_N = 0
 # BENDING_FORCE_ACC_SF = 2  # Account for dynamic effects
-LOAD_WEIGHT_KG = 4 
+LOAD_WEIGHT_KG = 4
 LOAD_LEVER_ARM_MM = 100
 GRAVITY_METER_SEC_SEC = 9.81
 
-LOAD_TORQUE_N_MM = LOAD_WEIGHT_KG * GRAVITY_METER_SEC_SEC*LOAD_LEVER_ARM_MM
+LOAD_TORQUE_N_MM = LOAD_WEIGHT_KG * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
 
 # MAX_BENDING_FORCE_N = BENDING_FORCE_N * BENDING_FORCE_ACC_SF
 
@@ -92,10 +91,10 @@ class Component:
         print(
             f"{self.get_name():<15}"
             f"{check:<7}"
-            f"σ MPa={sigma :<6.2f} "
-            f"U={util:<8.2f} "
-            f"MoS={mos_str:<9} "
-            f"   {fem_output}"
+            f"{sigma :<15.2f} "
+            f"{util:<5.2f} "
+            f"{mos_str:<9} "
+            f"{fem_output}"
         )
 
     def _format_fem(self):
@@ -123,7 +122,7 @@ class Gear(Component):
         self.pitch_radius_mm = (MODULE_MM * self.teeth_count) / 2
         self.effective_force = effective_force
         self.name = name
-        
+
     def passes_check(self, threshold):
         return self._calculate_bending_stress() < threshold
 
@@ -201,7 +200,7 @@ class Ring(Gear):
 class Pin(Component):
     def __init__(self, torque, diameter_mm, length_mm, fillet_radius_mm,
                  bolt_diameter_mm=None):
-        self.effective_force = torque 
+        self.effective_force = torque
         self.diameter_mm = diameter_mm
         self.radius = diameter_mm / 2
         self.length_mm = length_mm
@@ -349,7 +348,7 @@ class CarrierHub(Component):
     # ------------------------
     def _shaft_torsion(self):
         return (2 * self.torque) / (
-            math.pi * self.shaft_radius**3
+                math.pi * self.shaft_radius ** 3
         )
 
     # ------------------------
@@ -359,7 +358,7 @@ class CarrierHub(Component):
     def _shaft_bending(self):
         M = self.F * self.L
         return (4 * M) / (
-            math.pi * self.shaft_radius**3
+                math.pi * self.shaft_radius ** 3
         )
 
     # ------------------------
@@ -368,7 +367,7 @@ class CarrierHub(Component):
     def _shaft_von_mises(self):
         sigma_b = self._shaft_bending()
         tau_t = self._shaft_torsion()
-        return math.sqrt(sigma_b**2 + 3 * tau_t**2)
+        return math.sqrt(sigma_b ** 2 + 3 * tau_t ** 2)
 
     # ------------------------
     # BOLT SHEAR FROM TORQUE
@@ -378,7 +377,7 @@ class CarrierHub(Component):
         if self.bolt_count == 0:
             return 0
         return self.torque / (
-            self.bolt_count * self.bolt_circle_radius
+                self.bolt_count * self.bolt_circle_radius
         )
 
     # ------------------------
@@ -391,7 +390,7 @@ class CarrierHub(Component):
             return 0
         M = self.F * self.L
         return M / (
-            self.bolt_count * self.bolt_circle_radius
+                self.bolt_count * self.bolt_circle_radius
         )
 
     # ------------------------
@@ -402,9 +401,9 @@ class CarrierHub(Component):
         tension = self._bolt_tension_from_bending()
 
         shear_area = (
-            math.pi *
-            self.insert_diameter *
-            self.insert_embed_depth
+                math.pi *
+                self.insert_diameter *
+                self.insert_embed_depth
         )
 
         if shear_area == 0:
@@ -445,7 +444,7 @@ class Stage:
 
     def display(self):
         print(f"Stage {self.index} results:")
-        print(f"Component\tPass\tMargins\t\t\t\t\tFem\n")
+        print(f"Component\tPass\tForce σ MPa\tU\tMoS\t\t\t\t\tFem\n")
         for component in self.components:
             component.display(MAX_SIGMA_ALLOWED_MEGA_PASCAL)
         print()
@@ -454,41 +453,40 @@ class Stage:
         return all([c.passes_check(MAX_SIGMA_ALLOWED_MEGA_PASCAL) for c in self.components])
 
 
-TOTAL_RATIO =math.pow( GEAR_RATIO , STAGES_COUNT)
-TOTAL_EFFICIENCY = math.pow( EFFICIENCY , STAGES_COUNT)
+TOTAL_RATIO = math.pow(GEAR_RATIO, STAGES_COUNT)
+TOTAL_EFFICIENCY = math.pow(EFFICIENCY, STAGES_COUNT)
 
 required_motor_torque = LOAD_TORQUE_N_MM / (TOTAL_RATIO * TOTAL_EFFICIENCY)
 
 current_input_torque = required_motor_torque
 
-
 for i in range(1, STAGES_COUNT + 1):
 
     # 1. Calculate effective tangential force for this stage
-    tangetial_sun_force = (current_input_torque / (SUN_PITCH_RADIUS_MM* PLANETS_COUNT)) * LOAD_SHARING_FACTOR
+    tangetial_sun_force = (current_input_torque / (SUN_PITCH_RADIUS_MM * PLANETS_COUNT)) * LOAD_SHARING_FACTOR
 
     # 2. Create new component instances for this stage
-    sun = Gear(SUN_TEETH_COUNT, SUN_FACE_WIDTH_MM, tangetial_sun_force,"Sun")
-    planet = Gear(PLANET_TEETH_COUNT, PLANET_FACE_WIDTH_MM, tangetial_sun_force,"Planet")
+    sun = Gear(SUN_TEETH_COUNT, SUN_FACE_WIDTH_MM, tangetial_sun_force, "Sun")
+    planet = Gear(PLANET_TEETH_COUNT, PLANET_FACE_WIDTH_MM, tangetial_sun_force, "Planet")
     ring = Ring(RING_TEETH_COUNT, RING_FACE_WIDTH_MM, tangetial_sun_force, RING_WALL_THICKNESS_MM)
-    pin = Pin(2*tangetial_sun_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM)
+    pin = Pin(2 * tangetial_sun_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM)
 
     # 3. Output torque for this stage
     stage_output_torque = current_input_torque * GEAR_RATIO * EFFICIENCY
 
     carrier_hub = CarrierHub(
-    torque_nmm=stage_output_torque,
-    transverse_force_n=LOAD_WEIGHT_KG * GRAVITY_METER_SEC_SEC,
-    transverse_lever_arm_mm=LOAD_LEVER_ARM_MM,
-    shaft_radius_mm=CARRIER_HUB_RADIUS_MM,
-    bolt_count=CARRIER_HUB_BOLT_COUNT,
-    bolt_circle_radius_mm=CARRIER_HUB_BOLT_CIRCLE_RADIUS_MM,
-    insert_diameter_mm=HEAT_INSERT_DIAMETER_MM,
-    insert_embed_depth_mm=HEAT_INSERT_EMBED_DEPTH_MM
-)
+        torque_nmm=stage_output_torque,
+        transverse_force_n=LOAD_WEIGHT_KG * GRAVITY_METER_SEC_SEC,
+        transverse_lever_arm_mm=LOAD_LEVER_ARM_MM,
+        shaft_radius_mm=CARRIER_HUB_RADIUS_MM,
+        bolt_count=CARRIER_HUB_BOLT_COUNT,
+        bolt_circle_radius_mm=CARRIER_HUB_BOLT_CIRCLE_RADIUS_MM,
+        insert_diameter_mm=HEAT_INSERT_DIAMETER_MM,
+        insert_embed_depth_mm=HEAT_INSERT_EMBED_DEPTH_MM
+    )
 
     # 5. Create stage and store it
-    stage = Stage(i, sun, planet, ring, pin,carrier_hub)
+    stage = Stage(i, sun, planet, ring, pin, carrier_hub)
 
     # 6. Display results
     stage.display()
