@@ -105,7 +105,7 @@ class Component:
         fem_dict = self.get_fem_loads()
         if not fem_dict:
             return "-"
-        return ", ".join([f"{k}: {v:.2e}" for k, v in fem_dict.items()])
+        return ", ".join([f"{k}: {v:g}" for k, v in fem_dict.items()])
 
 
 class Gear(Component):
