@@ -186,7 +186,7 @@ class Ring(Gear):
     def _calculate_bending_stress(self):
         y_ext = self._get_lewis_form_factor(self.teeth_count)
         y_internal = 1.3 * y_ext
-        return self.effective_force / (self.face_width_mm * MODULE_MM * y_internal)
+        return self.effective_force / (self.face_width_mm * MODULE_MM * y_internal * LEWIS_CORRECTION_FACTOR)
 
     def _calculate_ovalization(self):
         # σ_ring ≈ (F_r,p · r_r) / (t_ring · b)
@@ -565,7 +565,8 @@ for i in range(1, STAGES_COUNT + 1):
 
     # Pass TOTAL radial force to ring
     ring_total_radial = PLANETS_COUNT * radial_force
-    ring = Ring(RING_TEETH_COUNT, RING_FACE_WIDTH_MM, tangetial_force, ring_total_radial, RING_WALL_THICKNESS_MM)
+    ring_total_tangential = PLANETS_COUNT * tangetial_force
+    ring = Ring(RING_TEETH_COUNT, RING_FACE_WIDTH_MM, ring_total_tangential, ring_total_radial, RING_WALL_THICKNESS_MM)
 
     # Total force transmitted through each planet pin
     pin_force = math.sqrt(
