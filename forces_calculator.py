@@ -9,6 +9,7 @@ SAFETY_FACTOR = 3
 EFFICIENCY = .8
 GRAVITY_METER_SEC_SEC = 9.81
 MAX_SIGMA_ALLOWED_MEGA_PASCAL = MATERIAL_STRENGTH_MEGA_PASCAL / SAFETY_FACTOR
+LEWIS_CORRECTION_FACTOR = 1.2
 
 # -------------------------
 # GEAR SPECS
@@ -132,7 +133,7 @@ class Gear(Component):
     def _calculate_bending_stress(self):
         # σ = F / (b * m * y)
         lewis_y = self._get_lewis_form_factor(self.teeth_count)
-        return self.effective_force / (self.face_width_mm * MODULE_MM * lewis_y)
+        return self.effective_force / (self.face_width_mm * MODULE_MM * lewis_y*LEWIS_CORRECTION_FACTOR)
 
     def _get_lewis_form_factor(self, teeth):
         """
