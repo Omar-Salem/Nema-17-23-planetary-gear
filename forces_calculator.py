@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 # -------------------------
 MATERIAL_STRENGTH_MEGA_PASCAL = 45  # N/mm²
 SAFETY_FACTOR = 3
-EFFICIENCY = .95
+EFFICIENCY = .8
 GRAVITY_METER_SEC_SEC = 9.81
 MAX_SIGMA_ALLOWED_MEGA_PASCAL = MATERIAL_STRENGTH_MEGA_PASCAL / SAFETY_FACTOR
 
@@ -546,6 +546,8 @@ TOTAL_EFFICIENCY = math.pow(EFFICIENCY, STAGES_COUNT)
 required_motor_torque = LOAD_TORQUE_N_MM / (TOTAL_RATIO * TOTAL_EFFICIENCY)
 
 current_input_torque = required_motor_torque
+
+print(f"Required motor torque: {required_motor_torque:.2f} N·mm\n")
 
 for i in range(1, STAGES_COUNT + 1):
 
