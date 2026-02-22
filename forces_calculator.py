@@ -134,7 +134,7 @@ class Gear(Component):
     def _calculate_bending_stress(self):
         # σ = F / (b * m * y)
         lewis_y = self._get_lewis_form_factor(self.teeth_count)
-        return self.effective_force / (self.face_width_mm * MODULE_MM * lewis_y*LEWIS_CORRECTION_FACTOR)
+        return self.effective_force / (self.face_width_mm * MODULE_MM * lewis_y * LEWIS_CORRECTION_FACTOR)
 
     def _get_lewis_form_factor(self, teeth):
         """
@@ -160,6 +160,7 @@ class Gear(Component):
 
     def get_governing_stress(self):
         return self._calculate_bending_stress()
+
 
 class Ring(Gear):
     def __init__(self, teeth_count, face_width_mm, tangential_force, radial_force, thickness):
@@ -197,15 +198,15 @@ class Ring(Gear):
             self._calculate_ovalization()
         )
 
-class Pin(Component):
 
+class Pin(Component):
     # Material properties
-    YOUNG_MODULUS_PLA_N_MM = 2500       # MPa
-    YOUNG_MODULUS_STEEL_N_MM = 200000   # MPa
+    YOUNG_MODULUS_PLA_N_MM = 2500  # MPa
+    YOUNG_MODULUS_STEEL_N_MM = 200000  # MPa
 
     POISSONS_RATIO_PLA = 0.35
     POISSONS_RATIO_STEEL = 0.30
-    
+
     SIGMA_ALLOW_STEEL = 250
 
     # Derived shear moduli
@@ -228,10 +229,10 @@ class Pin(Component):
     # ---------------------------------------------------
 
     def _area(self, r):
-        return math.pi * r**2
+        return math.pi * math.pow(r, 2)
 
     def _inertia(self, r):
-        return math.pi * r**4 / 4
+        return math.pi * math.pow(r, 4) / 4
 
     # ---------------------------------------------------
     # BENDING (Transformed section)
@@ -311,8 +312,13 @@ class Pin(Component):
         # Apply Kt only to PLA bending
         sigma_pla *= self._kt()
 
-        vm_pla = math.sqrt(sigma_pla**2 + 3 * tau_pla**2)
-        vm_steel = math.sqrt(sigma_steel**2 + 3 * tau_steel**2)
+        vm_pla = math.sqrt(
+            math.pow(sigma_pla, 2) + 3 * math.pow(tau_pla, 2)
+        )
+
+        vm_steel = math.sqrt(
+            math.pow(sigma_steel, 2) + 3 * math.pow(tau_steel, 2)
+        )
 
         return vm_pla, vm_steel
 
@@ -336,13 +342,13 @@ class Pin(Component):
             I_inner = self._inertia(self.r_bolt)
 
             EI = (
-                self.YOUNG_MODULUS_PLA_N_MM * (I_outer - I_inner) +
-                self.YOUNG_MODULUS_STEEL_N_MM * I_inner
+                    self.YOUNG_MODULUS_PLA_N_MM * (I_outer - I_inner) +
+                    self.YOUNG_MODULUS_STEEL_N_MM * I_inner
             )
         else:
             EI = self.YOUNG_MODULUS_PLA_N_MM * I_outer
 
-        return self.F * self.L**3 / (3 * EI)
+        return self.F * math.pow(self.L, 3) / (3 * EI)
 
     # ---------------------------------------------------
     # Governing stress utilization
@@ -382,6 +388,7 @@ class Pin(Component):
             "Bearing": self._bearing(),
             "Deflection": self._deflection()
         }
+
 
 class CarrierHub(Component):
     def __init__(self,
@@ -435,7 +442,7 @@ class CarrierHub(Component):
     def _shaft_von_mises(self):
         sigma_b = self._shaft_bending()
         tau_t = self._shaft_torsion()
-        return math.sqrt(sigma_b ** 2 + 3 * tau_t ** 2)
+        return math.sqrt(math.pow(sigma_b, 2) + 3 * math.pow(tau_t, 2))
 
     # ------------------------
     # BOLT SHEAR FROM TORQUE
@@ -468,15 +475,15 @@ class CarrierHub(Component):
         shear_force = self._bolt_shear_force()
 
         projected_area = (
-            self.insert_diameter *
-            self.insert_embed_depth
+                self.insert_diameter *
+                self.insert_embed_depth
         )
 
         if projected_area == 0:
             return 0
 
         return shear_force / projected_area
-    
+
     # ------------------------
     # INSERT PULL-OUT STRESS
     # σ = F / (π d h)
@@ -522,6 +529,7 @@ class CarrierHub(Component):
             "insert_bearing": self._insert_bearing()
         }
 
+
 class Stage:
     def __init__(self, index, *components):
         self.index = index
@@ -548,7 +556,7 @@ current_input_torque = required_motor_torque
 print(f"Required motor torque: {required_motor_torque:.2f} N·mm\n")
 
 for i in range(1, STAGES_COUNT + 1):
-    
+
     tangetial_force = (current_input_torque / (SUN_PITCH_RADIUS_MM * PLANETS_COUNT)) * LOAD_SHARING_FACTOR
     radial_force = tangetial_force * math.tan(PRESSURE_ANGLE_RADIANS)
 
@@ -557,10 +565,13 @@ for i in range(1, STAGES_COUNT + 1):
 
     # Pass TOTAL radial force to ring
     ring_total_radial = PLANETS_COUNT * radial_force
-    ring = Ring(RING_TEETH_COUNT, RING_FACE_WIDTH_MM, tangetial_force,ring_total_radial, RING_WALL_THICKNESS_MM)
+    ring = Ring(RING_TEETH_COUNT, RING_FACE_WIDTH_MM, tangetial_force, ring_total_radial, RING_WALL_THICKNESS_MM)
 
     # Total force transmitted through each planet pin
-    pin_force = math.sqrt((2 * tangetial_force)**2 + (2 * radial_force)**2)
+    pin_force = math.sqrt(
+        math.pow(2 * tangetial_force, 2) +
+        math.pow(2 * radial_force, 2)
+    )
     pin = Pin(pin_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM)
 
     # 3. Output torque for this stage
@@ -591,7 +602,7 @@ for i in range(1, STAGES_COUNT + 1):
             if carrier_hub.passes_check(MAX_SIGMA_ALLOWED_MEGA_PASCAL):
                 print(f"All {STAGES_COUNT} stages passed successfully! ✅")
             else:
-                print(f"Carrier hub failed stress check ❌.")   
+                print(f"Carrier hub failed stress check ❌.")
         else:
             print(f"Stage {i} passed stress check ✅. Moving to next stage...\n")
 
