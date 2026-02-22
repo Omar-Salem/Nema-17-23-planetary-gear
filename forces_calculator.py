@@ -19,6 +19,7 @@ GEAR_RATIO = 6
 PLANETS_COUNT = 3
 MODULE_MM = 1
 PRESSURE_ANGLE_DEGREE = 20
+PRESSURE_ANGLE_RADIANS = math.radians(PRESSURE_ANGLE_DEGREE)
 LOAD_SHARING_FACTOR = 1
 STAGES_COUNT = 2
 
@@ -161,10 +162,10 @@ class Gear(Component):
         return self._calculate_bending_stress()
 
 class Ring(Gear):
-    def __init__(self, teeth_count, face_width_mm, effective_force, thickness):
-        super().__init__(teeth_count, face_width_mm, effective_force, "Ring")
+    def __init__(self, teeth_count, face_width_mm, tangential_force, radial_force, thickness):
+        super().__init__(teeth_count, face_width_mm, tangential_force, "Ring")
         self.thickness = thickness
-        self.radial_force = self.effective_force * math.tan(math.radians(PRESSURE_ANGLE_DEGREE))
+        self.radial_force = radial_force
 
     def passes_check(self, threshold):
         return self._calculate_bending_stress() < threshold and self._calculate_ovalization() < threshold
@@ -547,15 +548,20 @@ current_input_torque = required_motor_torque
 print(f"Required motor torque: {required_motor_torque:.2f} N·mm\n")
 
 for i in range(1, STAGES_COUNT + 1):
+    
+    tangetial_force = (current_input_torque / (SUN_PITCH_RADIUS_MM * PLANETS_COUNT)) * LOAD_SHARING_FACTOR
+    radial_force = tangetial_force * math.tan(PRESSURE_ANGLE_RADIANS)
 
-    # 1. Calculate effective tangential force for this stage
-    tangetial_sun_force = (current_input_torque / (SUN_PITCH_RADIUS_MM * PLANETS_COUNT)) * LOAD_SHARING_FACTOR
+    sun = Gear(SUN_TEETH_COUNT, SUN_FACE_WIDTH_MM, tangetial_force, "Sun")
+    planet = Gear(PLANET_TEETH_COUNT, PLANET_FACE_WIDTH_MM, tangetial_force, "Planet")
 
-    # 2. Create new component instances for this stage
-    sun = Gear(SUN_TEETH_COUNT, SUN_FACE_WIDTH_MM, tangetial_sun_force, "Sun")
-    planet = Gear(PLANET_TEETH_COUNT, PLANET_FACE_WIDTH_MM, tangetial_sun_force, "Planet")
-    ring = Ring(RING_TEETH_COUNT, RING_FACE_WIDTH_MM, tangetial_sun_force, RING_WALL_THICKNESS_MM)
-    pin = Pin(2 * tangetial_sun_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM)
+    # Pass TOTAL radial force to ring
+    ring_total_radial = PLANETS_COUNT * radial_force
+    ring = Ring(RING_TEETH_COUNT, RING_FACE_WIDTH_MM, tangetial_force,ring_total_radial, RING_WALL_THICKNESS_MM)
+
+    # Total force transmitted through each planet pin
+    pin_force = math.sqrt((2 * tangetial_force)**2 + (2 * radial_force)**2)
+    pin = Pin(pin_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM)
 
     # 3. Output torque for this stage
     stage_output_torque = current_input_torque * GEAR_RATIO * EFFICIENCY
