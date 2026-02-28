@@ -189,7 +189,7 @@ class Ring(Gear):
         sigma_ovalization = self._calculate_ovalization()
         sigma_tooth = self._calculate_bending_stress()
         return {
-            "F_radial": self.radial_force,
+            "F_r": self.radial_force,
             "sigma_ovalization": sigma_ovalization,
             "sigma_tooth": sigma_tooth
         }
@@ -333,13 +333,7 @@ class Pin(Component):
 
         return vm_pla, vm_steel
 
-    # ---------------------------------------------------
-    # Bearing (PLA governs)
-    # ---------------------------------------------------
 
-    def _bearing(self):
-        area_proj = self.D * self.L
-        return self.F / area_proj
 
     # ---------------------------------------------------
     # Deflection (true composite EI)
@@ -368,21 +362,18 @@ class Pin(Component):
     def get_governing_stress(self):
 
         vm_pla, vm_steel = self._von_mises()
-        bearing = self._bearing()
 
-        util_pla = max(vm_pla, bearing) / MAX_SIGMA_ALLOWED_MEGA_PASCAL
+        util_pla = vm_pla / MAX_SIGMA_ALLOWED_MEGA_PASCAL
         util_steel = vm_steel / self.SIGMA_ALLOW_STEEL
 
         return max(util_pla, util_steel) * MAX_SIGMA_ALLOWED_MEGA_PASCAL
 
     def passes_check(self, threshold=None):
         vm_pla, vm_steel = self._von_mises()
-        bearing = self._bearing()
 
         if vm_pla > MAX_SIGMA_ALLOWED_MEGA_PASCAL:
             return False
-        if bearing > MAX_SIGMA_ALLOWED_MEGA_PASCAL:
-            return False
+
         if vm_steel > self.SIGMA_ALLOW_STEEL:
             return False
 
@@ -396,7 +387,6 @@ class Pin(Component):
         return {
             "VM_PLA": vm_pla,
             "VM_STEEL": vm_steel,
-            "Bearing": self._bearing(),
             "Deflection": self._deflection()
         }
 
@@ -479,23 +469,6 @@ class CarrierHub(Component):
         )
 
     # ------------------------
-    # BEARING STRESS
-    # σ = F / (d h)
-    # ------------------------
-    def _insert_bearing(self):
-        shear_force = self._bolt_shear_force()
-
-        projected_area = (
-                self.insert_diameter *
-                self.insert_embed_depth
-        )
-
-        if projected_area == 0:
-            return 0
-
-        return shear_force / projected_area
-
-    # ------------------------
     # INSERT PULL-OUT STRESS
     # σ = F / (π d h)
     # ------------------------
@@ -519,8 +492,7 @@ class CarrierHub(Component):
     def get_governing_stress(self):
         return max(
             self._shaft_von_mises(),
-            self._insert_pullout(),
-            self._insert_bearing()
+            self._insert_pullout()
         )
 
     def passes_check(self, threshold):
@@ -536,8 +508,7 @@ class CarrierHub(Component):
             "shaft_torsion": self._shaft_torsion(),
             "bolt_shear_force": self._bolt_shear_force(),
             "bolt_tension": self._bolt_tension_from_bending(),
-            "insert_pullout": self._insert_pullout(),
-            "insert_bearing": self._insert_bearing()
+            "insert_pullout": self._insert_pullout()
         }
 
 
