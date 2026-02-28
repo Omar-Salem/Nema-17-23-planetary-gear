@@ -125,6 +125,17 @@ class Gear(Component):
         self.effective_force = effective_force
         self.name = name
 
+    def get_fem_loads(self):
+        F_t = self.effective_force
+        F_r = F_t * math.tan(math.radians(PRESSURE_ANGLE_DEGREE))
+        sigma_b = self._calculate_bending_stress()
+
+        return {
+            "F_t": F_t,
+            "F_r": F_r,
+            "sigma_bending": sigma_b
+        }
+
     def passes_check(self, threshold):
         return self._calculate_bending_stress() < threshold
 
