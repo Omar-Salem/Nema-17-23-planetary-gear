@@ -279,7 +279,6 @@ class Pin(Component):
     # ---------------------------------------------------
     # SHEAR FORCE SPLIT (G*A weighting)
     # ---------------------------------------------------
-
     def _shear_stresses(self):
 
         F = self.F
@@ -297,7 +296,7 @@ class Pin(Component):
             F_pla = F - F_steel
 
             tau_steel = 4 * F_steel / (3 * A_steel)
-            tau_pla = 4 * F_pla / (3 * A_pla)
+            tau_pla = 2 * F_pla / A_pla
 
             return tau_pla, tau_steel
 
@@ -343,7 +342,6 @@ class Pin(Component):
     # ---------------------------------------------------
     # Deflection (true composite EI)
     # ---------------------------------------------------
-
     def _deflection(self):
 
         I_outer = self._inertia(self.R)
@@ -358,7 +356,7 @@ class Pin(Component):
         else:
             EI = self.YOUNG_MODULUS_PLA_N_MM * I_outer
 
-        return self.F * math.pow(self.L, 3) / (3 * EI)
+        return self.F * math.pow(self.L, 3) / (8 * EI)
 
     # ---------------------------------------------------
     # Governing stress utilization
