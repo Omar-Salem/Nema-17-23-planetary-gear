@@ -128,15 +128,10 @@ class Gear(Component):
     def get_fem_loads(self):
         F_t = self.effective_force
         F_r = F_t * math.tan(math.radians(PRESSURE_ANGLE_DEGREE))
-        sigma_b = self._calculate_bending_stress()
-        # Von Mises approximation for bending + radial (treating radial as shear)
-        von_mises = math.sqrt(sigma_b**2 + 3 * (F_r / (self.face_width_mm * MODULE_MM))**2)
-
 
         return {
-            "F_t Nm": F_t,
-            "F_r Nm": F_r,
-            "von_mises Mpa": von_mises
+            "F_t (Tangential) Nm": F_t,
+            "F_r (Radial) Nm": F_r
         }
 
     def passes_check(self, threshold):
@@ -186,17 +181,9 @@ class Ring(Gear):
         return self._calculate_bending_stress() < threshold and self._calculate_ovalization() < threshold
 
     def get_fem_loads(self):
-        """
-        Returns radial load and tooth load for FEM.
-        """
-        sigma_ovalization = self._calculate_ovalization()
-        sigma_tooth = self._calculate_bending_stress()
-        # Von Mises: combine bending and ovalization as perpendicular stresses
-        von_mises = math.sqrt(sigma_tooth**2 + sigma_ovalization**2 - sigma_tooth*sigma_ovalization)
-
         return {
-            "F_r Nm": self.radial_force,
-            "von_mises Mpa": von_mises
+            "F_t (Tangential) Nm": self.effective_force,
+            "F_r (Radial) Nm": self.radial_force
         }
 
     def _calculate_bending_stress(self):
@@ -386,11 +373,8 @@ class Pin(Component):
         return "Pin"
 
     def get_fem_loads(self):
-        vm_pla, vm_steel = self._von_mises()
         return {
-            "VM_PLA": vm_pla,
-            "VM_STEEL": vm_steel,
-            "Deflection": self._deflection()
+            "Applied Force N": self.F
         }
 
 
@@ -506,12 +490,8 @@ class CarrierHub(Component):
     # ------------------------
     def get_fem_loads(self):
         return {
-            "shaft_vm": self._shaft_von_mises(),
-            "shaft_bending": self._shaft_bending(),
-            "shaft_torsion": self._shaft_torsion(),
-            "bolt_shear_force": self._bolt_shear_force(),
-            "bolt_tension": self._bolt_tension_from_bending(),
-            "insert_pullout": self._insert_pullout()
+            "Input Torque N·mm": self.torque,
+            "Load Torque (Bending) N·mm": self.load_torque_n_mm
         }
 
 
