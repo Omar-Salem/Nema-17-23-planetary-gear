@@ -129,11 +129,14 @@ class Gear(Component):
         F_t = self.effective_force
         F_r = F_t * math.tan(math.radians(PRESSURE_ANGLE_DEGREE))
         sigma_b = self._calculate_bending_stress()
+        # Von Mises approximation for bending + radial (treating radial as shear)
+        von_mises = math.sqrt(sigma_b**2 + 3 * (F_r / (self.face_width_mm * MODULE_MM))**2)
+
 
         return {
             "F_t Nm": F_t,
             "F_r Nm": F_r,
-            "sigma_bending Mpa": sigma_b
+            "von_mises Mpa": von_mises
         }
 
     def passes_check(self, threshold):
@@ -188,10 +191,12 @@ class Ring(Gear):
         """
         sigma_ovalization = self._calculate_ovalization()
         sigma_tooth = self._calculate_bending_stress()
+        # Von Mises: combine bending and ovalization as perpendicular stresses
+        von_mises = math.sqrt(sigma_tooth**2 + sigma_ovalization**2 - sigma_tooth*sigma_ovalization)
+
         return {
             "F_r Nm": self.radial_force,
-            "sigma_ovalization Mpa": sigma_ovalization,
-            "sigma_tooth Mpa": sigma_tooth
+            "von_mises Mpa": von_mises
         }
 
     def _calculate_bending_stress(self):
