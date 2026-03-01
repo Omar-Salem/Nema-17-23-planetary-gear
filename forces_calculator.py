@@ -219,7 +219,7 @@ class Pin(Component):
     def __init__(self, force_N, diameter_mm, length_mm, fillet_radius_mm,
                  steel_bolt_diameter_mm=None):
 
-        self.F = force_N
+        self.F = force_N # This is the resultant force
         self.D = diameter_mm
         self.R = diameter_mm / 2
         self.L = length_mm
@@ -230,7 +230,6 @@ class Pin(Component):
     # ---------------------------------------------------
     # Geometry helpers
     # ---------------------------------------------------
-
     def _area(self, r):
         return math.pi * math.pow(r, 2)
 
@@ -240,10 +239,8 @@ class Pin(Component):
     # ---------------------------------------------------
     # BENDING (Transformed section)
     # ---------------------------------------------------
-
     def _bending_stresses(self):
-
-        M = self.F * self.L / 2  # cantilever end load
+        M = self.F * self.L / 2  # cantilever end load (UDL approximation)
 
         I_outer = self._inertia(self.R)
 
@@ -258,7 +255,6 @@ class Pin(Component):
             sigma_steel = n * M * self.r_bolt / I_trans
 
             return sigma_pla, sigma_steel
-
         else:
             sigma = M * self.R / I_outer
             return sigma, 0
@@ -267,9 +263,7 @@ class Pin(Component):
     # SHEAR FORCE SPLIT (G*A weighting)
     # ---------------------------------------------------
     def _shear_stresses(self):
-
         F = self.F
-
         A_total = self._area(self.R)
 
         if self.d_bolt:
@@ -286,7 +280,6 @@ class Pin(Component):
             tau_pla = 2 * F_pla / A_pla
 
             return tau_pla, tau_steel
-
         else:
             tau = 4 * F / (3 * A_total)
             return tau, 0
@@ -294,7 +287,6 @@ class Pin(Component):
     # ---------------------------------------------------
     # Stress concentration (PLA only)
     # ---------------------------------------------------
-
     def _kt(self):
         r_d = self.fillet_radius / self.D
         if r_d < 0.01: return 3.0
@@ -305,9 +297,7 @@ class Pin(Component):
     # ---------------------------------------------------
     # VON MISES (per material)
     # ---------------------------------------------------
-
     def _von_mises(self):
-
         sigma_pla, sigma_steel = self._bending_stresses()
         tau_pla, tau_steel = self._shear_stresses()
 
@@ -324,18 +314,14 @@ class Pin(Component):
 
         return vm_pla, vm_steel
 
-
-
     # ---------------------------------------------------
     # Deflection (true composite EI)
     # ---------------------------------------------------
     def _deflection(self):
-
         I_outer = self._inertia(self.R)
 
         if self.d_bolt:
             I_inner = self._inertia(self.r_bolt)
-
             EI = (
                     self.YOUNG_MODULUS_PLA_N_MM * (I_outer - I_inner) +
                     self.YOUNG_MODULUS_STEEL_N_MM * I_inner
@@ -346,35 +332,41 @@ class Pin(Component):
         return self.F * math.pow(self.L, 3) / (8 * EI)
 
     # ---------------------------------------------------
-    # Governing stress utilization
+    # Reporting Methods
     # ---------------------------------------------------
+    def get_name(self):
+        return "Pin"
+
+    def get_analytical_vm(self):
+        vm_pla, vm_steel = self._von_mises()
+        # Return PLA VM as it's the primary failure mode for the 3D print
+        return vm_pla
 
     def get_governing_stress(self):
-
         vm_pla, vm_steel = self._von_mises()
-
         util_pla = vm_pla / MAX_SIGMA_ALLOWED_MEGA_PASCAL
         util_steel = vm_steel / self.SIGMA_ALLOW_STEEL
-
         return max(util_pla, util_steel) * MAX_SIGMA_ALLOWED_MEGA_PASCAL
 
     def passes_check(self, threshold=None):
         vm_pla, vm_steel = self._von_mises()
-
-        if vm_pla > MAX_SIGMA_ALLOWED_MEGA_PASCAL:
-            return False
-
-        if vm_steel > self.SIGMA_ALLOW_STEEL:
-            return False
-
-        return True
-
-    def get_name(self):
-        return "Pin"
+        return vm_pla <= MAX_SIGMA_ALLOWED_MEGA_PASCAL and vm_steel <= self.SIGMA_ALLOW_STEEL
 
     def get_fem_loads(self):
+        """
+        Calculates the Tangential and Radial components from the resultant Pin Force
+        for easier entry into FEA 'Bearing Load' components.
+        """
+        # Derived from F_resultant = sqrt(Ft_total^2 + Fr_total^2)
+        # where Fr = Ft * tan(Pressure_Angle)
+        denom = math.sqrt(1 + math.pow(math.tan(PRESSURE_ANGLE_RADIANS), 2))
+        f_tangential_applied = self.F / denom
+        f_radial_applied = f_tangential_applied * math.tan(PRESSURE_ANGLE_RADIANS)
+
         return {
-            "Applied Force N": self.F
+            "F_t (Tangential) Nm": round(f_tangential_applied, 2),
+            "F_r (Radial) Nm": round(f_radial_applied, 2),
+            "Deflection mm": round(self._deflection(), 4)
         }
 
 
