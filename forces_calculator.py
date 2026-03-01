@@ -131,9 +131,9 @@ class Gear(Component):
         sigma_b = self._calculate_bending_stress()
 
         return {
-            "F_t": F_t,
-            "F_r": F_r,
-            "sigma_bending": sigma_b
+            "F_t Nm": F_t,
+            "F_r Nm": F_r,
+            "sigma_bending Mpa": sigma_b
         }
 
     def passes_check(self, threshold):
@@ -189,9 +189,9 @@ class Ring(Gear):
         sigma_ovalization = self._calculate_ovalization()
         sigma_tooth = self._calculate_bending_stress()
         return {
-            "F_r": self.radial_force,
-            "sigma_ovalization": sigma_ovalization,
-            "sigma_tooth": sigma_tooth
+            "F_r Nm": self.radial_force,
+            "sigma_ovalization Mpa": sigma_ovalization,
+            "sigma_tooth Mpa": sigma_tooth
         }
 
     def _calculate_bending_stress(self):
