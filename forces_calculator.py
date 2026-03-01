@@ -58,19 +58,15 @@ class Component:
 
     @abstractmethod
     def get_name(self):
-        # This method must be implemented by all subclasses
         pass
 
     @abstractmethod
     def get_component_von_mises(self):
-        """
-        Return the worst-case stress for this component.
-        Must be implemented by subclasses.
-        """
         pass
 
+    @abstractmethod
     def get_fem_loads(self):
-        return {}
+        pass
 
     def get_margin_data(self, threshold):
         sigma = self.get_component_von_mises()
