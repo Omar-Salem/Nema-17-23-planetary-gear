@@ -61,19 +61,19 @@ class Component:
         # This method must be implemented by all subclasses
         pass
 
-    def get_fem_loads(self):
-        return {}
-
     @abstractmethod
-    def get_governing_stress(self):
+    def get_component_von_mises(self):
         """
         Return the worst-case stress for this component.
         Must be implemented by subclasses.
         """
         pass
 
+    def get_fem_loads(self):
+        return {}
+
     def get_margin_data(self, threshold):
-        sigma = self.get_governing_stress()
+        sigma = self.get_component_von_mises()
         utilization = sigma / threshold
         margin_of_safety = (threshold / sigma) - 1 if sigma != 0 else float("inf")
         delta = threshold - sigma
@@ -166,9 +166,16 @@ class Gear(Component):
 
         # fallback to nearest
         return self.EXTERNAL_LEWIS_20_TABLE[keys[-1] if teeth > keys[-1] else keys[0]]
+    
+    def _calculate_shear_stress(self):
+        # Area approximately face_width * module
+        return self.effective_force / (self.face_width_mm * MODULE_MM)
 
-    def get_governing_stress(self):
-        return self._calculate_bending_stress()
+    def get_component_von_mises(self):
+        sigma_b = self._calculate_bending_stress()
+        tau = self._calculate_shear_stress()
+        # Von Mises: sqrt(sigma^2 + 3*tau^2)
+        return math.sqrt(math.pow(sigma_b, 2) + 3 * math.pow(tau, 2))
 
 
 class Ring(Gear):
@@ -196,10 +203,10 @@ class Ring(Gear):
         return (self.radial_force * self.pitch_radius_mm) / (self.thickness * self.face_width_mm)
 
     def get_governing_stress(self):
-        return max(
-            self._calculate_bending_stress(),
-            self._calculate_ovalization()
-        )
+        sigma_b = self._calculate_bending_stress()
+        sigma_o = self._calculate_ovalization()
+        # Total normal stress in this simplified approach
+        return math.sqrt(math.pow(sigma_b + sigma_o, 2))
 
 
 class Pin(Component):
@@ -342,7 +349,7 @@ class Pin(Component):
         # Return PLA VM as it's the primary failure mode for the 3D print
         return vm_pla
 
-    def get_governing_stress(self):
+    def get_component_von_mises(self):
         vm_pla, vm_steel = self._von_mises()
         util_pla = vm_pla / MAX_SIGMA_ALLOWED_MEGA_PASCAL
         util_steel = vm_steel / self.SIGMA_ALLOW_STEEL
@@ -468,14 +475,14 @@ class CarrierHub(Component):
     # ------------------------
     # GOVERNING STRESS
     # ------------------------
-    def get_governing_stress(self):
+    def get_component_von_mises(self):
         return max(
             self._shaft_von_mises(),
             self._insert_pullout()
         )
 
     def passes_check(self, threshold):
-        return self.get_governing_stress() < threshold
+        return self.get_component_von_mises() < threshold
 
     # ------------------------
     # FEM OUTPUTS
@@ -494,7 +501,7 @@ class Stage:
 
     def display(self):
         print(f"Stage {self.index} results:")
-        print(f"Component\tPass\tForce σ MPa\tU\tMoS\t\t\t\t\tFem\n")
+        print(f"Component\tPass\tVM MPa\t\tU\tMoS\t\t\t\tFem\n")
         for component in self.components:
             component.display(MAX_SIGMA_ALLOWED_MEGA_PASCAL)
         print()
