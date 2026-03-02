@@ -2,14 +2,22 @@ import math
 from abc import ABC, abstractmethod
 
 # -------------------------
+# ASSUMPTIONS
+# -------------------------
+LEWIS_CORRECTION_FACTOR = 1.2
+EFFICIENCY = .8
+SAFETY_FACTOR = 3
+LOAD_SHARING_FACTOR = 1
+
+# -------------------------
 # GLOBAL PARAMETERS
 # -------------------------
-PLA_STRENGTH_MEGA_PASCAL = 45  # N/mm²
-SAFETY_FACTOR = 3
-EFFICIENCY = .8
 GRAVITY_METER_SEC_SEC = 9.81
+PLA_STRENGTH_MEGA_PASCAL = 45  # N/mm²
 MAX_SIGMA_ALLOWED_PLA = PLA_STRENGTH_MEGA_PASCAL / SAFETY_FACTOR
-LEWIS_CORRECTION_FACTOR = 1.2
+
+STEEL_STRENGTH_MEGA_PASCAL = 1080
+MAX_SIGMA_ALLOWED_STEEL = STEEL_STRENGTH_MEGA_PASCAL / SAFETY_FACTOR
 
 # -------------------------
 # GEAR SPECS
@@ -20,28 +28,49 @@ PLANETS_COUNT = 3
 MODULE_MM = 1
 PRESSURE_ANGLE_DEGREE = 20
 PRESSURE_ANGLE_RADIANS = math.radians(PRESSURE_ANGLE_DEGREE)
-LOAD_SHARING_FACTOR = 1
 STAGES_COUNT = 2
 
+# -------------------------
+# SUN
+# -------------------------
 SUN_TEETH_COUNT = 12
 SUN_FACE_WIDTH_MM = 13
 SUN_PITCH_RADIUS_MM = (MODULE_MM * SUN_TEETH_COUNT) / 2
 
-RING_TEETH_COUNT = int((GEAR_RATIO - 1) * SUN_TEETH_COUNT)
-RING_FACE_WIDTH_MM = 48
 
+# -------------------------
+# PLANET
+# -------------------------
 PLANET_TEETH_COUNT = int((GEAR_RATIO - 2) * SUN_TEETH_COUNT / 2)
 PLANET_FACE_WIDTH_MM = 8
 
+# -------------------------
+# PIN
+# -------------------------
 PIN_DIAMETER_MM = 5.27
 PIN_LENGTH_MM = 5
 PIN_FILLET_RADIUS_MM = .5
 
+M3_BOLT_DIAMETER_MM = 3.0
+
+
+# -------------------------
+# RING
+# -------------------------
+RING_TEETH_COUNT = int((GEAR_RATIO - 1) * SUN_TEETH_COUNT)
+RING_FACE_WIDTH_MM = 48
 RING_WALL_THICKNESS_MM = 8
 
+# -------------------------
+# CARRIER
+# -------------------------
 CARRIER_HUB_RADIUS_MM = 35.1 / 2
 CARRIER_HUB_BOLT_COUNT = 8
 CARRIER_HUB_BOLT_CIRCLE_RADIUS_MM = 13.2
+
+# -------------------------
+# HEAT_INSERT
+# -------------------------
 HEAT_INSERT_DIAMETER_MM = 4.2
 HEAT_INSERT_EMBED_DEPTH_MM = 5
 
@@ -50,7 +79,6 @@ HEAT_INSERT_EMBED_DEPTH_MM = 5
 # -------------------------
 LOAD_WEIGHT_KG = 3
 LOAD_LEVER_ARM_MM = 100
-
 LOAD_TORQUE_N_MM = LOAD_WEIGHT_KG * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
 
 
@@ -315,12 +343,11 @@ class Pin(Component):
 class SupportedPin(Pin):
     YOUNG_MODULUS_STEEL_N_MM = 200000  # MPa
     POISSONS_RATIO_STEEL = 0.30
-    SIGMA_ALLOW_STEEL = 250
 
     SHEAR_MODULUS_STEEL = YOUNG_MODULUS_STEEL_N_MM / (2 * (1 + POISSONS_RATIO_STEEL))
 
     def __init__(self, force_N, diameter_mm, length_mm, fillet_radius_mm,
-                 steel_bolt_diameter_mm, threshold):
+                 threshold, steel_bolt_diameter_mm):
         super().__init__(force_N, diameter_mm, length_mm, fillet_radius_mm, threshold)
         self.d_bolt = steel_bolt_diameter_mm
         self.r_bolt = steel_bolt_diameter_mm / 2
@@ -536,7 +563,11 @@ for i in range(1, STAGES_COUNT + 1):
         math.pow(2 * tangetial_force, 2) +
         math.pow(2 * radial_force, 2)
     )
-    pin = Pin(pin_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM, MAX_SIGMA_ALLOWED_PLA)
+    pin = Pin(pin_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM,
+              MAX_SIGMA_ALLOWED_PLA)
+    # pin = Pin(pin_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM,
+    #           MAX_SIGMA_ALLOWED_PLA) if i < STAGES_COUNT else SupportedPin(
+    #     pin_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM, MAX_SIGMA_ALLOWED_STEEL, M3_BOLT_DIAMETER_MM)
 
     # 3. Output torque for this stage
     stage_output_torque = current_input_torque * GEAR_RATIO * EFFICIENCY
