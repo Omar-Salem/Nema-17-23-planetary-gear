@@ -11,10 +11,10 @@ Parametric planetary gearbox, you can change gear ratio and backlash.
 
 ### Parts List
 * M3 heat inserts 
-    * (L5 $\times$ 4.2mm OD) $\times$ 18
+    * (L5 $\times$ 4.2mm OD) $\times$ 15
 * M3 hex bolts
     * 91290A120 (16mm)  $\times$ 3
-    * 91290A115 (10mm headless)  $\times$ 6
+    * 91290A115 (10mm)  $\times$ 3
     * 91290A111 (6mm)  $\times$ 4
 * Deep groove ball bearings
     * 4668K269 (35mm $\times$ 47mm $\times$ 7mm) $\times$ 1
