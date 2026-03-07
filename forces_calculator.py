@@ -237,11 +237,9 @@ class Ring(Gear):
 
 
 class Pin(Component):
-    # Material properties
     YOUNG_MODULUS_PLA_N_MM = 2500  # MPa
     POISSONS_RATIO_PLA = 0.35
 
-    # Derived shear moduli
     SHEAR_MODULUS_PLA = YOUNG_MODULUS_PLA_N_MM / (2 * (1 + POISSONS_RATIO_PLA))
 
     def __init__(self, force_N, diameter_mm, length_mm, fillet_radius_mm, threshold):
@@ -252,26 +250,18 @@ class Pin(Component):
         self.L = length_mm
         self.fillet_radius = fillet_radius_mm
 
-    # ---------------------------------------------------
-    # Geometry helpers
-    # ---------------------------------------------------
     def _area(self, r):
         return math.pi * math.pow(r, 2)
 
     def _inertia(self, r):
         return math.pi * math.pow(r, 4) / 4
 
-    # ---------------------------------------------------
-    # BENDING (Transformed section)
-    # ---------------------------------------------------
+
     def _bending_stresses(self):
-        M = self.F * self.L / 2  # cantilever end load (UDL approximation)
+        M = self.F * self.L / 2  
         I_outer = self._inertia(self.R)
         return self._sigma(M, I_outer)
 
-    # ---------------------------------------------------
-    # Stress concentration (PLA only)
-    # ---------------------------------------------------
     def _kt(self):
         r_d = self.fillet_radius / self.D
         if r_d < 0.01: return 3.0
@@ -289,17 +279,13 @@ class Pin(Component):
             math.pow(sigma, 2) + 3 * math.pow(tau, 2)
         )
 
-    # ---------------------------------------------------
-    # Deflection (true composite EI)
-    # ---------------------------------------------------
+
     def _deflection(self):
-        I_outer = self._inertia(self.R)
-        EI = self.YOUNG_MODULUS_PLA_N_MM * I_outer
+        I = self._inertia(self.R)
+        EI = self.YOUNG_MODULUS_PLA_N_MM * I
         return self.F * math.pow(self.L, 3) / (8 * EI)
 
-    # ---------------------------------------------------
-    # Reporting Methods
-    # ---------------------------------------------------
+
     def get_name(self):
         return "Pin"
 
@@ -329,15 +315,12 @@ class Pin(Component):
             "Deflection mm": round(self._deflection(), 4)
         }
 
-    def _sigma(self, M, I_outer):
-        sigma = M * self.R / I_outer
-        return sigma
+    def _sigma(self, M, I):
+        return M * self.R / I
 
     def _tau(self):
-        F = self.F
-        A_total = self._area(self.R)
-        tau = 4 * F / (3 * A_total)
-        return tau
+        area = self._area(self.R)
+        return 4 * self.F / (3 * area)
 
 
 class SupportedPin(Pin):
