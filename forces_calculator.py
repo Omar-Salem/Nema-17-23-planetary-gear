@@ -474,8 +474,8 @@ def display_stage_results(load_weight_kg, efficiency):
 
         if not stage.check_passed():
             print(f"Stage {stage.index} failed stress check ❌.\n")
-        else:
-            print(f"Stage {stage.index} passed stress check ✅.\n")
+            return
+        print(f"Stage {stage.index} passed stress check ✅.\n")
 
 def find_max_safe_load(test_efficiency):
     dummy_load_kg = 1.0
