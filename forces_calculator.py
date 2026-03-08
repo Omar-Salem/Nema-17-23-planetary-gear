@@ -78,6 +78,9 @@ HEAT_INSERT_EMBED_DEPTH_MM = 5
 LOAD_WEIGHT_KG = 3
 LOAD_LEVER_ARM_MM = 100
 
+# -------------------------
+# MOTOR
+# -------------------------
 MOTOR_TORQUE_N_MM = 340
 
 
@@ -393,9 +396,6 @@ class Stage:
         return all([c.passes_check() for c in self.components])
 
 
-# ---------------------------------------------------------
-# NEW ENCAPSULATED LOGIC FOR LINEAR SCALING
-# ---------------------------------------------------------
 def evaluate_system_utilization(load_weight_kg, efficiency, display_results=False):
 
     load_torque = load_weight_kg * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
