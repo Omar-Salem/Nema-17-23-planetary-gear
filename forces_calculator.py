@@ -395,16 +395,14 @@ class Stage:
     def check_passed(self):
         return all([c.passes_check() for c in self.components])
 
-
-def evaluate_system_utilization(load_weight_kg, efficiency, display_results=False):
+def build_stages(load_weight_kg, efficiency):
+    stages = []
 
     load_torque = load_weight_kg * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
     total_ratio = math.pow(GEAR_RATIO, STAGES_COUNT)
     total_efficiency = math.pow(efficiency, STAGES_COUNT)
 
     current_input_torque = load_torque / (total_ratio * total_efficiency)
-
-    max_util = 0
 
     for i in range(1, STAGES_COUNT + 1):
         tangential_force = (current_input_torque / (SUN_PITCH_RADIUS_MM * PLANETS_COUNT)) * LOAD_SHARING_FACTOR
@@ -415,13 +413,35 @@ def evaluate_system_utilization(load_weight_kg, efficiency, display_results=Fals
 
         ring_total_radial = PLANETS_COUNT * radial_force
         ring_total_tangential = PLANETS_COUNT * tangential_force
-        ring = Ring(RING_TEETH_COUNT, RING_FACE_WIDTH_MM, ring_total_tangential, ring_total_radial, RING_WALL_THICKNESS_MM, MAX_SIGMA_ALLOWED_PLA)
+        ring = Ring(
+            RING_TEETH_COUNT,
+            RING_FACE_WIDTH_MM,
+            ring_total_tangential,
+            ring_total_radial,
+            RING_WALL_THICKNESS_MM,
+            MAX_SIGMA_ALLOWED_PLA
+        )
 
-        pin_force = math.sqrt(math.pow(2 * tangential_force, 2) + math.pow(2 * radial_force, 2))
-        pin = Pin(pin_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM, MAX_SIGMA_ALLOWED_PLA)
-        pin = Pin(pin_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM,
-                      MAX_SIGMA_ALLOWED_PLA) if i < STAGES_COUNT else SupportedPin(
-                pin_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM, MAX_SIGMA_ALLOWED_STEEL, M3_BOLT_DIAMETER_MM)
+        pin_force = math.sqrt(
+            math.pow(2 * tangential_force, 2) +
+            math.pow(2 * radial_force, 2)
+        )
+        # pin = Pin(pin_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM, MAX_SIGMA_ALLOWED_PLA)
+
+        pin = Pin(
+            pin_force,
+            PIN_DIAMETER_MM,
+            PIN_LENGTH_MM,
+            PIN_FILLET_RADIUS_MM,
+            MAX_SIGMA_ALLOWED_PLA
+        ) if i < STAGES_COUNT else SupportedPin(
+            pin_force,
+            PIN_DIAMETER_MM,
+            PIN_LENGTH_MM,
+            PIN_FILLET_RADIUS_MM,
+            MAX_SIGMA_ALLOWED_STEEL,
+            M3_BOLT_DIAMETER_MM
+        )
 
         carrier_hub = CarrierHub(
             torque_n_mm=current_input_torque,
@@ -433,26 +453,34 @@ def evaluate_system_utilization(load_weight_kg, efficiency, display_results=Fals
             insert_embed_depth_mm=HEAT_INSERT_EMBED_DEPTH_MM,
             threshold=MAX_SIGMA_ALLOWED_PLA
         )
-        stage = Stage(i, sun, planet, ring, pin, carrier_hub)
-        max_util= max(max_util, stage.get_stage_utilization())
 
-        if display_results:
-            stage.display()
-            if not stage.check_passed():
-                print(f"Stage {i} failed stress check ❌.\n")
-            else:
-                print(f"Stage {i} passed stress check ✅.\n")
+        stage = Stage(i, sun, planet, ring, pin, carrier_hub)
+        stages.append(stage)
 
         stage_output_torque = current_input_torque * GEAR_RATIO * efficiency
         current_input_torque = stage_output_torque
 
-    return max_util
+    return stages
 
+def evaluate_system_utilization(load_weight_kg, efficiency):
+    stages = build_stages(load_weight_kg, efficiency)
+    return max(stage.get_stage_utilization() for stage in stages)
+
+def display_stage_results(load_weight_kg, efficiency):
+    stages = build_stages(load_weight_kg, efficiency)
+
+    for stage in stages:
+        stage.display()
+
+        if not stage.check_passed():
+            print(f"Stage {stage.index} failed stress check ❌.\n")
+        else:
+            print(f"Stage {stage.index} passed stress check ✅.\n")
 
 def find_max_safe_load(test_efficiency):
     dummy_load_kg = 1.0
-    max_util = evaluate_system_utilization(dummy_load_kg, test_efficiency, display_results=False)
 
+    max_util = evaluate_system_utilization(dummy_load_kg, test_efficiency)
     stress_limited_load = dummy_load_kg / max_util
 
     total_ratio = math.pow(GEAR_RATIO, STAGES_COUNT)
@@ -471,19 +499,18 @@ def find_max_safe_load(test_efficiency):
     return final_load, final_torque
 
 
-# ---------------------------------------------------------
-# EXECUTION
-# ---------------------------------------------------------
 if __name__ == "__main__":
+
     print("-" * 50)
     print("1. SYSTEM CHECK")
     print("-" * 50)
-    # Replicates your original script's exact output block
-    evaluate_system_utilization(LOAD_WEIGHT_KG, EFFICIENCY, display_results=True)
+
+    display_stage_results(LOAD_WEIGHT_KG, EFFICIENCY)
 
     print("-" * 50)
     print("2. EFFICIENCY SWEEP: MAXIMUM SAFE LOAD CAPACITY")
     print("-" * 50)
+
     for eff in [EFFICIENCY, 0.90]:
-        max_kg, max_torque = find_max_safe_load(test_efficiency=eff)
+        max_kg, max_torque = find_max_safe_load(eff)
         print(f"Efficiency {eff*100:.0f}% | Max Safe Load: {max_kg:5.2f} kg ({max_torque:7.0f} N·mm)")
