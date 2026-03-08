@@ -404,6 +404,8 @@ def evaluate_system_utilization(load_weight_kg, efficiency, display_results=Fals
 
     current_input_torque = load_torque / (total_ratio * total_efficiency)
 
+    max_util = 0
+
     for i in range(1, STAGES_COUNT + 1):
         tangential_force = (current_input_torque / (SUN_PITCH_RADIUS_MM * PLANETS_COUNT)) * LOAD_SHARING_FACTOR
         radial_force = tangential_force * math.tan(PRESSURE_ANGLE_RADIANS)
@@ -422,7 +424,7 @@ def evaluate_system_utilization(load_weight_kg, efficiency, display_results=Fals
                 pin_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM, MAX_SIGMA_ALLOWED_STEEL, M3_BOLT_DIAMETER_MM)
 
         carrier_hub = CarrierHub(
-            torque_n_mm=current_input_torque, # This is the final output torque matching the payload
+            torque_n_mm=current_input_torque,
             load_torque_n_mm=load_torque,
             shaft_radius_mm=CARRIER_HUB_RADIUS_MM,
             bolt_count=CARRIER_HUB_BOLT_COUNT,
@@ -432,6 +434,7 @@ def evaluate_system_utilization(load_weight_kg, efficiency, display_results=Fals
             threshold=MAX_SIGMA_ALLOWED_PLA
         )
         stage = Stage(i, sun, planet, ring, pin, carrier_hub)
+        max_util= max(max_util, stage.get_stage_utilization())
 
         if display_results:
             stage.display()
@@ -443,7 +446,7 @@ def evaluate_system_utilization(load_weight_kg, efficiency, display_results=Fals
         stage_output_torque = current_input_torque * GEAR_RATIO * efficiency
         current_input_torque = stage_output_torque
 
-    return stage.get_stage_utilization()
+    return max_util
 
 
 def find_max_safe_load(test_efficiency):
@@ -461,7 +464,7 @@ def find_max_safe_load(test_efficiency):
             * total_efficiency
             / (GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM)
     )
-    
+
     final_load = min(stress_limited_load, torque_limited_load)
     final_torque = final_load * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
 
