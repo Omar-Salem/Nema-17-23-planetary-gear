@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 # ASSUMPTIONS
 # -------------------------
 LEWIS_CORRECTION_FACTOR = 1.2
-EFFICIENCY = .8
+EFFICIENCY = 0.8
 SAFETY_FACTOR = 3
 LOAD_SHARING_FACTOR = 1
 
@@ -37,7 +37,6 @@ SUN_TEETH_COUNT = 12
 SUN_FACE_WIDTH_MM = 13
 SUN_PITCH_RADIUS_MM = (MODULE_MM * SUN_TEETH_COUNT) / 2
 
-
 # -------------------------
 # PLANET
 # -------------------------
@@ -49,10 +48,9 @@ PLANET_FACE_WIDTH_MM = 8
 # -------------------------
 PIN_DIAMETER_MM = 5.27
 PIN_LENGTH_MM = 5
-PIN_FILLET_RADIUS_MM = .5
+PIN_FILLET_RADIUS_MM = 0.5
 
 M3_BOLT_DIAMETER_MM = 3.0
-
 
 # -------------------------
 # RING
@@ -82,8 +80,7 @@ LOAD_LEVER_ARM_MM = 100
 LOAD_TORQUE_N_MM = LOAD_WEIGHT_KG * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
 
 
-class Component:
-
+class Component(ABC):
     def __init__(self, threshold):
         self.threshold = threshold
 
@@ -104,7 +101,6 @@ class Component:
         utilization = sigma / self.threshold
         margin_of_safety = (self.threshold / sigma) - 1 if sigma != 0 else float("inf")
         delta = self.threshold - sigma
-
         return sigma, utilization, margin_of_safety, delta
 
     def display(self):
@@ -112,10 +108,7 @@ class Component:
         check = "✅" if util < 1 else "❌"
         fem_output = self._format_fem() if util < 1 else "-"
 
-        if mos > 9999:
-            mos_str = " >9999"
-        else:
-            mos_str = f"{mos:7.2f}"
+        mos_str = " >9999" if mos > 9999 else f"{mos:7.2f}"
 
         print(
             f"{self.get_name():<15}"
@@ -134,7 +127,6 @@ class Component:
 
 
 class Gear(Component):
-    # Lewis form factor lookup for 20° full-depth involute external spur gears
     EXTERNAL_LEWIS_20_TABLE = {
         10: 0.201, 11: 0.226, 12: 0.245, 13: 0.264, 14: 0.276,
         15: 0.289, 16: 0.295, 17: 0.302, 18: 0.308, 19: 0.314,
@@ -156,11 +148,7 @@ class Gear(Component):
     def get_fem_loads(self):
         F_t = self.effective_force
         F_r = F_t * math.tan(math.radians(PRESSURE_ANGLE_DEGREE))
-
-        return {
-            "F_t (Tangential) N": F_t,
-            "F_r (Radial) N": F_r
-        }
+        return {"F_t (Tangential) N": F_t, "F_r (Radial) N": F_r}
 
     def passes_check(self):
         return self._calculate_bending_stress() < self.threshold
@@ -169,20 +157,12 @@ class Gear(Component):
         return self.name
 
     def _calculate_bending_stress(self):
-        # σ = F / (b * m * y)
         lewis_y = self._get_lewis_form_factor(self.teeth_count)
         return self.effective_force / (self.face_width_mm * MODULE_MM * lewis_y * LEWIS_CORRECTION_FACTOR)
 
     def _get_lewis_form_factor(self, teeth):
-        """
-        Return Lewis form factor for external spur gear with 20° full-depth involute.
-        If exact teeth not in table, interpolate linearly between nearest keys.
-        """
-
         if teeth in self.EXTERNAL_LEWIS_20_TABLE:
             return self.EXTERNAL_LEWIS_20_TABLE[teeth]
-
-        # simple linear interpolation between nearest entries
         keys = sorted(self.EXTERNAL_LEWIS_20_TABLE.keys())
         for i in range(len(keys) - 1):
             low, high = keys[i], keys[i + 1]
@@ -191,12 +171,9 @@ class Gear(Component):
                 y_high = self.EXTERNAL_LEWIS_20_TABLE[high]
                 frac = (teeth - low) / (high - low)
                 return y_low + (y_high - y_low) * frac
-
-        # fallback to nearest
         return self.EXTERNAL_LEWIS_20_TABLE[keys[-1] if teeth > keys[-1] else keys[0]]
 
     def _calculate_shear_stress(self):
-        # Area approximately face_width * module
         return self.effective_force / (self.face_width_mm * MODULE_MM)
 
     def get_component_von_mises(self):
@@ -215,10 +192,7 @@ class Ring(Gear):
         return self._calculate_bending_stress() < self.threshold and self._calculate_ovalization() < self.threshold
 
     def get_fem_loads(self):
-        return {
-            "F_t (Tangential) N": self.effective_force,
-            "F_r (Radial) N": self.radial_force
-        }
+        return {"F_t (Tangential) N": self.effective_force, "F_r (Radial) N": self.radial_force}
 
     def _calculate_bending_stress(self):
         y_ext = self._get_lewis_form_factor(self.teeth_count)
@@ -226,20 +200,17 @@ class Ring(Gear):
         return self.effective_force / (self.face_width_mm * MODULE_MM * y_internal * LEWIS_CORRECTION_FACTOR)
 
     def _calculate_ovalization(self):
-        # σ_ring ≈ (F_r,p · r_r) / (t_ring · b)
         return (self.radial_force * self.pitch_radius_mm) / (self.thickness * self.face_width_mm)
 
     def get_governing_stress(self):
         sigma_b = self._calculate_bending_stress()
         sigma_o = self._calculate_ovalization()
-        # Total normal stress in this simplified approach
         return math.sqrt(math.pow(sigma_b + sigma_o, 2))
 
 
 class Pin(Component):
-    YOUNG_MODULUS_PLA_N_MM = 2500  # MPa
+    YOUNG_MODULUS_PLA_N_MM = 2500
     POISSONS_RATIO_PLA = 0.35
-
     SHEAR_MODULUS_PLA = YOUNG_MODULUS_PLA_N_MM / (2 * (1 + POISSONS_RATIO_PLA))
 
     def __init__(self, force_N, diameter_mm, length_mm, fillet_radius_mm, threshold):
@@ -256,9 +227,8 @@ class Pin(Component):
     def _inertia(self, r):
         return math.pi * math.pow(r, 4) / 4
 
-
     def _bending_stresses(self):
-        M = self.F * self.L / 2  
+        M = self.F * self.L / 2
         I_outer = self._inertia(self.R)
         return self._sigma(M, I_outer)
 
@@ -270,21 +240,14 @@ class Pin(Component):
         return 1.5
 
     def _von_mises(self):
-        sigma = self._bending_stresses()
+        sigma = self._bending_stresses() * self._kt()
         tau = self._tau()
-
-        sigma *= self._kt()
-
-        return math.sqrt(
-            math.pow(sigma, 2) + 3 * math.pow(tau, 2)
-        )
-
+        return math.sqrt(math.pow(sigma, 2) + 3 * math.pow(tau, 2))
 
     def _deflection(self):
         I = self._inertia(self.R)
         EI = self.YOUNG_MODULUS_PLA_N_MM * I
         return self.F * math.pow(self.L, 3) / (8 * EI)
-
 
     def get_name(self):
         return "Pin"
@@ -299,16 +262,9 @@ class Pin(Component):
         return self._von_mises() <= self.threshold
 
     def get_fem_loads(self):
-        """
-        Calculates the Tangential and Radial components from the resultant Pin Force
-        for easier entry into FEA 'Bearing Load' components.
-        """
-        # Derived from F_resultant = sqrt(Ft_total^2 + Fr_total^2)
-        # where Fr = Ft * tan(Pressure_Angle)
         denom = math.sqrt(1 + math.pow(math.tan(PRESSURE_ANGLE_RADIANS), 2))
         f_tangential_applied = self.F / denom
         f_radial_applied = f_tangential_applied * math.tan(PRESSURE_ANGLE_RADIANS)
-
         return {
             "F_t (Tangential) N": round(f_tangential_applied, 2),
             "F_r (Radial) N": round(f_radial_applied, 2),
@@ -324,13 +280,11 @@ class Pin(Component):
 
 
 class SupportedPin(Pin):
-    YOUNG_MODULUS_STEEL_N_MM = 200000  # MPa
+    YOUNG_MODULUS_STEEL_N_MM = 200000
     POISSONS_RATIO_STEEL = 0.30
-
     SHEAR_MODULUS_STEEL = YOUNG_MODULUS_STEEL_N_MM / (2 * (1 + POISSONS_RATIO_STEEL))
 
-    def __init__(self, force_N, diameter_mm, length_mm, fillet_radius_mm,
-                 threshold, steel_bolt_diameter_mm):
+    def __init__(self, force_N, diameter_mm, length_mm, fillet_radius_mm, threshold, steel_bolt_diameter_mm):
         super().__init__(force_N, diameter_mm, length_mm, fillet_radius_mm, threshold)
         self.d_bolt = steel_bolt_diameter_mm
         self.r_bolt = steel_bolt_diameter_mm / 2
@@ -340,43 +294,29 @@ class SupportedPin(Pin):
 
     def _deflection(self):
         I_outer = self._inertia(self.R)
-
         I_inner = self._inertia(self.r_bolt)
-        EI = (
-                self.YOUNG_MODULUS_PLA_N_MM * (I_outer - I_inner) +
-                self.YOUNG_MODULUS_STEEL_N_MM * I_inner
-        )
-
+        EI = (self.YOUNG_MODULUS_PLA_N_MM * (I_outer - I_inner) + self.YOUNG_MODULUS_STEEL_N_MM * I_inner)
         return self.F * math.pow(self.L, 3) / (8 * EI)
 
     def _von_mises(self):
         sigma = self._bending_stresses()
         tau = self._tau()
-
-        return math.sqrt(
-            math.pow(sigma, 2) + 3 * math.pow(tau, 2)
-        )
+        return math.sqrt(math.pow(sigma, 2) + 3 * math.pow(tau, 2))
 
     def _tau(self):
-        F = self.F
         A_total = self._area(self.R)
-
         A_steel = self._area(self.r_bolt)
         A_pla = A_total - A_steel
 
         share_steel = self.SHEAR_MODULUS_STEEL * A_steel
         share_pla = self.SHEAR_MODULUS_PLA * A_pla
 
-        F_steel = F * share_steel / (share_steel + share_pla)
-
-        tau_steel = 4 * F_steel / (3 * A_steel)
-
-        return tau_steel
+        F_steel = self.F * share_steel / (share_steel + share_pla)
+        return 4 * F_steel / (3 * A_steel)
 
     def _sigma(self, M, I_outer):
         I_inner = self._inertia(self.r_bolt)
         n = self.YOUNG_MODULUS_STEEL_N_MM / self.YOUNG_MODULUS_PLA_N_MM
-
         I_trans = (I_outer - I_inner) + n * I_inner
         return n * M * self.r_bolt / I_trans
 
@@ -385,121 +325,52 @@ class SupportedPin(Pin):
 
 
 class CarrierHub(Component):
-    def __init__(self,
-                 torque_n_mm,
-                 load_torque_n_mm,
-                 shaft_radius_mm,
-                 bolt_count,
-                 bolt_circle_radius_mm,
-                 insert_diameter_mm,
-                 insert_embed_depth_mm, threshold):
+    def __init__(self, torque_n_mm, load_torque_n_mm, shaft_radius_mm, bolt_count, bolt_circle_radius_mm, insert_diameter_mm, insert_embed_depth_mm, threshold):
         super().__init__(threshold)
-
-        # Applied loads
         self.torque = torque_n_mm
         self.load_torque_n_mm = load_torque_n_mm
-
-        # Shaft geometry
         self.shaft_radius = shaft_radius_mm
-
-        # Bolt pattern
         self.bolt_count = bolt_count
         self.bolt_circle_radius = bolt_circle_radius_mm
-
-        # Insert geometry
         self.insert_diameter = insert_diameter_mm
         self.insert_embed_depth = insert_embed_depth_mm
 
     def get_name(self):
         return "CarrierHub"
 
-    # ------------------------
-    # SHAFT TORSION
-    # τ = 2T / (π r³)
-    # ------------------------
     def _shaft_torsion(self):
-        return (2 * self.torque) / (
-                math.pi * math.pow(self.shaft_radius, 3)
-        )
+        return (2 * self.torque) / (math.pi * math.pow(self.shaft_radius, 3))
 
-    # ------------------------
-    # SHAFT BENDING
-    # σ = 4M / (π r³)
-    # ------------------------
     def _shaft_bending(self):
-        return (4 * self.load_torque_n_mm) / (
-                math.pi * math.pow(self.shaft_radius, 3)
-        )
+        return (4 * self.load_torque_n_mm) / (math.pi * math.pow(self.shaft_radius, 3))
 
-    # ------------------------
-    # COMBINED VON MISES (shaft)
-    # ------------------------
     def _shaft_von_mises(self):
         sigma_b = self._shaft_bending()
         tau_t = self._shaft_torsion()
         return math.sqrt(math.pow(sigma_b, 2) + 3 * math.pow(tau_t, 2))
 
-    # ------------------------
-    # BOLT SHEAR FROM TORQUE
-    # F = T / (n r)
-    # ------------------------
     def _bolt_shear_force(self):
-        if self.bolt_count == 0:
-            return 0
-        return self.torque / (
-                self.bolt_count * self.bolt_circle_radius
-        )
+        if self.bolt_count == 0: return 0
+        return self.torque / (self.bolt_count * self.bolt_circle_radius)
 
-    # ------------------------
-    # BOLT TENSION FROM BENDING
-    # Worst case linear distribution
-    # F = M / (n r)
-    # ------------------------
     def _bolt_tension_from_bending(self):
-        if self.bolt_count == 0:
-            return 0
-        return self.load_torque_n_mm / (
-                self.bolt_count * self.bolt_circle_radius
-        )
+        if self.bolt_count == 0: return 0
+        return self.load_torque_n_mm / (self.bolt_count * self.bolt_circle_radius)
 
-    # ------------------------
-    # INSERT PULL-OUT STRESS
-    # σ = F / (π d h)
-    # ------------------------
     def _insert_pullout(self):
         tension = self._bolt_tension_from_bending()
-
-        shear_area = (
-                math.pi *
-                self.insert_diameter *
-                self.insert_embed_depth
-        )
-
-        if shear_area == 0:
-            return 0
-
+        shear_area = math.pi * self.insert_diameter * self.insert_embed_depth
+        if shear_area == 0: return 0
         return tension / shear_area
 
-    # ------------------------
-    # GOVERNING STRESS
-    # ------------------------
     def get_component_von_mises(self):
-        return max(
-            self._shaft_von_mises(),
-            self._insert_pullout()
-        )
+        return max(self._shaft_von_mises(), self._insert_pullout())
 
     def passes_check(self):
         return self.get_component_von_mises() < self.threshold
 
-    # ------------------------
-    # FEM OUTPUTS
-    # ------------------------
     def get_fem_loads(self):
-        return {
-            "Input Torque N·mm": self.torque,
-            "Load Torque (Bending) N·mm": self.load_torque_n_mm
-        }
+        return {"Input Torque N·mm": self.torque, "Load Torque (Bending) N·mm": self.load_torque_n_mm}
 
 
 class Stage:
@@ -509,7 +380,7 @@ class Stage:
 
     def display(self):
         print(f"Stage {self.index} results:")
-        print(f"Component\tPass\tVM MPa\t\tU\tMoS\t\t\t\tFem\n")
+        print("Component\tPass\tVM MPa\t\tU\tMoS\t\t\t\tFem\n")
         for component in self.components:
             component.display()
         print()
@@ -518,72 +389,122 @@ class Stage:
         return all([c.passes_check() for c in self.components])
 
 
-TOTAL_RATIO = math.pow(GEAR_RATIO, STAGES_COUNT)
-TOTAL_EFFICIENCY = math.pow(EFFICIENCY, STAGES_COUNT)
+# ---------------------------------------------------------
+# NEW ENCAPSULATED LOGIC FOR LINEAR SCALING
+# ---------------------------------------------------------
+def evaluate_system_utilization(load_weight_kg, efficiency, display_results=False):
+    """
+    Runs the gearbox calculations for a given load and efficiency.
+    If display_results is True, prints the standard stage breakdown.
+    Returns: (max_utilization, limiting_component_name)
+    """
+    load_torque = load_weight_kg * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
+    total_ratio = math.pow(GEAR_RATIO, STAGES_COUNT)
+    total_efficiency = math.pow(efficiency, STAGES_COUNT)
 
-required_motor_torque = LOAD_TORQUE_N_MM / (TOTAL_RATIO * TOTAL_EFFICIENCY)
+    current_input_torque = load_torque / (total_ratio * total_efficiency)
 
-current_input_torque = required_motor_torque
+    if display_results:
+        print(f"Testing Load: {load_weight_kg} kg | Efficiency: {efficiency*100:.0f}% per stage")
+        print(f"Required motor torque: {current_input_torque:.2f} N·mm\n")
 
-print(f"Required motor torque: {required_motor_torque:.2f} N·mm\n")
+    max_util = 0.0
+    limiting_comp = ""
+    system_passed = True
 
-for i in range(1, STAGES_COUNT + 1):
+    for i in range(1, STAGES_COUNT + 1):
+        tangential_force = (current_input_torque / (SUN_PITCH_RADIUS_MM * PLANETS_COUNT)) * LOAD_SHARING_FACTOR
+        radial_force = tangential_force * math.tan(PRESSURE_ANGLE_RADIANS)
 
-    tangetial_force = (current_input_torque / (SUN_PITCH_RADIUS_MM * PLANETS_COUNT)) * LOAD_SHARING_FACTOR
-    radial_force = tangetial_force * math.tan(PRESSURE_ANGLE_RADIANS)
+        sun = Gear(SUN_TEETH_COUNT, SUN_FACE_WIDTH_MM, tangential_force, "Sun", MAX_SIGMA_ALLOWED_PLA)
+        planet = Gear(PLANET_TEETH_COUNT, PLANET_FACE_WIDTH_MM, tangential_force, "Planet", MAX_SIGMA_ALLOWED_PLA)
 
-    sun = Gear(SUN_TEETH_COUNT, SUN_FACE_WIDTH_MM, tangetial_force, "Sun", MAX_SIGMA_ALLOWED_PLA)
-    planet = Gear(PLANET_TEETH_COUNT, PLANET_FACE_WIDTH_MM, tangetial_force, "Planet", MAX_SIGMA_ALLOWED_PLA)
+        ring_total_radial = PLANETS_COUNT * radial_force
+        ring_total_tangential = PLANETS_COUNT * tangential_force
+        ring = Ring(RING_TEETH_COUNT, RING_FACE_WIDTH_MM, ring_total_tangential, ring_total_radial, RING_WALL_THICKNESS_MM, MAX_SIGMA_ALLOWED_PLA)
 
-    # Pass TOTAL radial force to ring
-    ring_total_radial = PLANETS_COUNT * radial_force
-    ring_total_tangential = PLANETS_COUNT * tangetial_force
-    ring = Ring(RING_TEETH_COUNT, RING_FACE_WIDTH_MM, ring_total_tangential, ring_total_radial, RING_WALL_THICKNESS_MM,
-                MAX_SIGMA_ALLOWED_PLA)
+        pin_force = math.sqrt(math.pow(2 * tangential_force, 2) + math.pow(2 * radial_force, 2))
+        pin = Pin(pin_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM, MAX_SIGMA_ALLOWED_PLA)
+        pin = Pin(pin_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM,
+                      MAX_SIGMA_ALLOWED_PLA) if i < STAGES_COUNT else SupportedPin(
+                pin_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM, MAX_SIGMA_ALLOWED_STEEL, M3_BOLT_DIAMETER_MM)
 
-    # Total force transmitted through each planet pin
-    pin_force = math.sqrt(
-        math.pow(2 * tangetial_force, 2) +
-        math.pow(2 * radial_force, 2)
-    )
-    pin = Pin(pin_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM,
-              MAX_SIGMA_ALLOWED_PLA)
-    # pin = Pin(pin_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM,
-    #           MAX_SIGMA_ALLOWED_PLA) if i < STAGES_COUNT else SupportedPin(
-    #     pin_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM, MAX_SIGMA_ALLOWED_STEEL, M3_BOLT_DIAMETER_MM)
+        stage = Stage(i, sun, planet, ring, pin)
 
-    # 3. Output torque for this stage
-    stage_output_torque = current_input_torque * GEAR_RATIO * EFFICIENCY
+        # Track max utilization
+        for comp in stage.components:
+            _, util, _, _ = comp.get_margin_data()
+            if util > max_util:
+                max_util = util
+                limiting_comp = f"Stage {i} {comp.get_name()}"
 
-    # 5. Create stage and store it
-    stage = Stage(i, sun, planet, ring, pin)
-
-    # 6. Display results
-    stage.display()
-
-    # 7. Stop if any component fails
-    if not stage.check_passed():
-        print(f"Stage {i} failed stress check ❌.")
-        break
-    else:
-        if i == STAGES_COUNT:
-            carrier_hub = CarrierHub(
-                torque_n_mm=stage_output_torque,
-                load_torque_n_mm=LOAD_TORQUE_N_MM,
-                shaft_radius_mm=CARRIER_HUB_RADIUS_MM,
-                bolt_count=CARRIER_HUB_BOLT_COUNT,
-                bolt_circle_radius_mm=CARRIER_HUB_BOLT_CIRCLE_RADIUS_MM,
-                insert_diameter_mm=HEAT_INSERT_DIAMETER_MM,
-                insert_embed_depth_mm=HEAT_INSERT_EMBED_DEPTH_MM,
-                threshold=MAX_SIGMA_ALLOWED_PLA
-            )
-            carrier_hub.display()
-            if carrier_hub.passes_check():
-                print(f"All {STAGES_COUNT} stages passed successfully! ✅")
+        if display_results:
+            stage.display()
+            if not stage.check_passed():
+                print(f"Stage {i} failed stress check ❌.\n")
+                system_passed = False
             else:
-                print(f"Carrier hub failed stress check ❌.")
-        else:
-            print(f"Stage {i} passed stress check ✅. Moving to next stage...\n")
+                print(f"Stage {i} passed stress check ✅.\n")
 
-    # 8. Prepare torque for next stage
-    current_input_torque = stage_output_torque
+        stage_output_torque = current_input_torque * GEAR_RATIO * efficiency
+        current_input_torque = stage_output_torque
+
+    # Check Carrier Hub at the end
+    carrier_hub = CarrierHub(
+        torque_n_mm=current_input_torque, # This is the final output torque matching the payload
+        load_torque_n_mm=load_torque,
+        shaft_radius_mm=CARRIER_HUB_RADIUS_MM,
+        bolt_count=CARRIER_HUB_BOLT_COUNT,
+        bolt_circle_radius_mm=CARRIER_HUB_BOLT_CIRCLE_RADIUS_MM,
+        insert_diameter_mm=HEAT_INSERT_DIAMETER_MM,
+        insert_embed_depth_mm=HEAT_INSERT_EMBED_DEPTH_MM,
+        threshold=MAX_SIGMA_ALLOWED_PLA
+    )
+
+    _, hub_util, _, _ = carrier_hub.get_margin_data()
+    if hub_util > max_util:
+        max_util = hub_util
+        limiting_comp = carrier_hub.get_name()
+
+    if display_results:
+        carrier_hub.display()
+        if carrier_hub.passes_check() and system_passed:
+            print(f"All {STAGES_COUNT} stages and Carrier Hub passed successfully! ✅\n")
+        elif not carrier_hub.passes_check():
+            print(f"Carrier hub failed stress check ❌.\n")
+
+    return max_util, limiting_comp
+
+
+def find_max_safe_load(test_efficiency):
+    """
+    Uses linearity to find the maximum safe load in O(1) time.
+    Calculates the utilization for a 1kg dummy load, then scales up.
+    """
+    dummy_load_kg = 1.0
+    max_util, bottleneck = evaluate_system_utilization(dummy_load_kg, test_efficiency, display_results=False)
+
+    # Scale load to reach exactly 1.0 utilization
+    max_safe_load_kg = dummy_load_kg / max_util
+    max_safe_torque = max_safe_load_kg * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
+
+    return max_safe_load_kg, max_safe_torque, bottleneck
+
+
+# ---------------------------------------------------------
+# EXECUTION
+# ---------------------------------------------------------
+if __name__ == "__main__":
+    print("-" * 50)
+    print("1. RUNNING CURRENT SYSTEM CHECK")
+    print("-" * 50)
+    # Replicates your original script's exact output block
+    evaluate_system_utilization(LOAD_WEIGHT_KG, EFFICIENCY, display_results=True)
+
+    print("-" * 50)
+    print("2. EFFICIENCY SWEEP: MAXIMUM SAFE LOAD CAPACITY")
+    print("-" * 50)
+    # Sweeps efficiencies to show how internal forces shift the bottleneck
+    for eff in [EFFICIENCY, 0.90]:
+        max_kg, max_torque, bottleneck = find_max_safe_load(test_efficiency=eff)
+        print(f"Efficiency {eff*100:.0f}% | Max Safe Load: {max_kg:5.2f} kg ({max_torque:7.0f} N·mm) | Bottleneck: {bottleneck}")
