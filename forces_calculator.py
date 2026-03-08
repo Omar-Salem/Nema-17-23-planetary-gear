@@ -377,7 +377,10 @@ class Stage:
     def __init__(self, index, *components):
         self.index = index
         self.components = components
-
+        
+    def get_stage_utilization(self):
+        return max([c.get_margin_data()[1] for c in self.components])
+    
     def display(self):
         print(f"Stage {self.index} results:")
         print("Component\tPass\tVM MPa\t\tU\tMoS\t\t\t\tFem\n")
@@ -393,24 +396,12 @@ class Stage:
 # NEW ENCAPSULATED LOGIC FOR LINEAR SCALING
 # ---------------------------------------------------------
 def evaluate_system_utilization(load_weight_kg, efficiency, display_results=False):
-    """
-    Runs the gearbox calculations for a given load and efficiency.
-    If display_results is True, prints the standard stage breakdown.
-    Returns: (max_utilization, limiting_component_name)
-    """
+
     load_torque = load_weight_kg * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
     total_ratio = math.pow(GEAR_RATIO, STAGES_COUNT)
     total_efficiency = math.pow(efficiency, STAGES_COUNT)
 
     current_input_torque = load_torque / (total_ratio * total_efficiency)
-
-    if display_results:
-        print(f"Testing Load: {load_weight_kg} kg | Efficiency: {efficiency*100:.0f}% per stage")
-        print(f"Required motor torque: {current_input_torque:.2f} N·mm\n")
-
-    max_util = 0.0
-    limiting_comp = ""
-    system_passed = True
 
     for i in range(1, STAGES_COUNT + 1):
         tangential_force = (current_input_torque / (SUN_PITCH_RADIUS_MM * PLANETS_COUNT)) * LOAD_SHARING_FACTOR
@@ -429,51 +420,29 @@ def evaluate_system_utilization(load_weight_kg, efficiency, display_results=Fals
                       MAX_SIGMA_ALLOWED_PLA) if i < STAGES_COUNT else SupportedPin(
                 pin_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM, MAX_SIGMA_ALLOWED_STEEL, M3_BOLT_DIAMETER_MM)
 
-        stage = Stage(i, sun, planet, ring, pin)
-
-        # Track max utilization
-        for comp in stage.components:
-            _, util, _, _ = comp.get_margin_data()
-            if util > max_util:
-                max_util = util
-                limiting_comp = f"Stage {i} {comp.get_name()}"
+        carrier_hub = CarrierHub(
+            torque_n_mm=current_input_torque, # This is the final output torque matching the payload
+            load_torque_n_mm=load_torque,
+            shaft_radius_mm=CARRIER_HUB_RADIUS_MM,
+            bolt_count=CARRIER_HUB_BOLT_COUNT,
+            bolt_circle_radius_mm=CARRIER_HUB_BOLT_CIRCLE_RADIUS_MM,
+            insert_diameter_mm=HEAT_INSERT_DIAMETER_MM,
+            insert_embed_depth_mm=HEAT_INSERT_EMBED_DEPTH_MM,
+            threshold=MAX_SIGMA_ALLOWED_PLA
+        )
+        stage = Stage(i, sun, planet, ring, pin, carrier_hub)
 
         if display_results:
             stage.display()
             if not stage.check_passed():
                 print(f"Stage {i} failed stress check ❌.\n")
-                system_passed = False
             else:
                 print(f"Stage {i} passed stress check ✅.\n")
 
         stage_output_torque = current_input_torque * GEAR_RATIO * efficiency
         current_input_torque = stage_output_torque
 
-    # Check Carrier Hub at the end
-    carrier_hub = CarrierHub(
-        torque_n_mm=current_input_torque, # This is the final output torque matching the payload
-        load_torque_n_mm=load_torque,
-        shaft_radius_mm=CARRIER_HUB_RADIUS_MM,
-        bolt_count=CARRIER_HUB_BOLT_COUNT,
-        bolt_circle_radius_mm=CARRIER_HUB_BOLT_CIRCLE_RADIUS_MM,
-        insert_diameter_mm=HEAT_INSERT_DIAMETER_MM,
-        insert_embed_depth_mm=HEAT_INSERT_EMBED_DEPTH_MM,
-        threshold=MAX_SIGMA_ALLOWED_PLA
-    )
-
-    _, hub_util, _, _ = carrier_hub.get_margin_data()
-    if hub_util > max_util:
-        max_util = hub_util
-        limiting_comp = carrier_hub.get_name()
-
-    if display_results:
-        carrier_hub.display()
-        if carrier_hub.passes_check() and system_passed:
-            print(f"All {STAGES_COUNT} stages and Carrier Hub passed successfully! ✅\n")
-        elif not carrier_hub.passes_check():
-            print(f"Carrier hub failed stress check ❌.\n")
-
-    return max_util, limiting_comp
+    return stage.get_stage_utilization()
 
 
 def find_max_safe_load(test_efficiency):
@@ -482,13 +451,13 @@ def find_max_safe_load(test_efficiency):
     Calculates the utilization for a 1kg dummy load, then scales up.
     """
     dummy_load_kg = 1.0
-    max_util, bottleneck = evaluate_system_utilization(dummy_load_kg, test_efficiency, display_results=False)
+    max_util = evaluate_system_utilization(dummy_load_kg, test_efficiency, display_results=False)
 
     # Scale load to reach exactly 1.0 utilization
     max_safe_load_kg = dummy_load_kg / max_util
     max_safe_torque = max_safe_load_kg * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
 
-    return max_safe_load_kg, max_safe_torque, bottleneck
+    return max_safe_load_kg, max_safe_torque
 
 
 # ---------------------------------------------------------
@@ -496,7 +465,7 @@ def find_max_safe_load(test_efficiency):
 # ---------------------------------------------------------
 if __name__ == "__main__":
     print("-" * 50)
-    print("1. RUNNING CURRENT SYSTEM CHECK")
+    print("1. SYSTEM CHECK")
     print("-" * 50)
     # Replicates your original script's exact output block
     evaluate_system_utilization(LOAD_WEIGHT_KG, EFFICIENCY, display_results=True)
@@ -504,7 +473,6 @@ if __name__ == "__main__":
     print("-" * 50)
     print("2. EFFICIENCY SWEEP: MAXIMUM SAFE LOAD CAPACITY")
     print("-" * 50)
-    # Sweeps efficiencies to show how internal forces shift the bottleneck
     for eff in [EFFICIENCY, 0.90]:
-        max_kg, max_torque, bottleneck = find_max_safe_load(test_efficiency=eff)
-        print(f"Efficiency {eff*100:.0f}% | Max Safe Load: {max_kg:5.2f} kg ({max_torque:7.0f} N·mm) | Bottleneck: {bottleneck}")
+        max_kg, max_torque = find_max_safe_load(test_efficiency=eff)
+        print(f"Efficiency {eff*100:.0f}% | Max Safe Load: {max_kg:5.2f} kg ({max_torque:7.0f} N·mm)")
