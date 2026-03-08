@@ -513,4 +513,4 @@ if __name__ == "__main__":
 
     for eff in [EFFICIENCY, 0.90]:
         max_kg, max_torque = find_max_safe_load(eff)
-        print(f"Efficiency {eff*100:.0f}% | Max Safe Load: {max_kg:5.2f} kg ({max_torque:7.0f} N·mm)")
+        print(f"Efficiency {eff*100:.0f}% | Max Safe Load: {max_kg:5.2f} kg ({max_torque:4.0f} N·mm)")
