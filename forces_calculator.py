@@ -77,7 +77,8 @@ HEAT_INSERT_EMBED_DEPTH_MM = 5
 # -------------------------
 LOAD_WEIGHT_KG = 3
 LOAD_LEVER_ARM_MM = 100
-LOAD_TORQUE_N_MM = LOAD_WEIGHT_KG * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
+
+MOTOR_TORQUE_N_MM = 340
 
 
 class Component(ABC):
@@ -446,18 +447,25 @@ def evaluate_system_utilization(load_weight_kg, efficiency, display_results=Fals
 
 
 def find_max_safe_load(test_efficiency):
-    """
-    Uses linearity to find the maximum safe load in O(1) time.
-    Calculates the utilization for a 1kg dummy load, then scales up.
-    """
     dummy_load_kg = 1.0
     max_util = evaluate_system_utilization(dummy_load_kg, test_efficiency, display_results=False)
 
-    # Scale load to reach exactly 1.0 utilization
-    max_safe_load_kg = dummy_load_kg / max_util
-    max_safe_torque = max_safe_load_kg * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
+    stress_limited_load = dummy_load_kg / max_util
 
-    return max_safe_load_kg, max_safe_torque
+    total_ratio = math.pow(GEAR_RATIO, STAGES_COUNT)
+    total_efficiency = math.pow(test_efficiency, STAGES_COUNT)
+
+    torque_limited_load = (
+            MOTOR_TORQUE_N_MM
+            * total_ratio
+            * total_efficiency
+            / (GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM)
+    )
+    
+    final_load = min(stress_limited_load, torque_limited_load)
+    final_torque = final_load * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
+
+    return final_load, final_torque
 
 
 # ---------------------------------------------------------
