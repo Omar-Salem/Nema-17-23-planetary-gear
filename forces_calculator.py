@@ -289,8 +289,8 @@ class SupportedPin(Pin):
     POISSONS_RATIO_STEEL = 0.30
     SHEAR_MODULUS_STEEL = YOUNG_MODULUS_STEEL_N_MM / (2 * (1 + POISSONS_RATIO_STEEL))
 
-    def __init__(self, force_N: float, diameter_mm: float, length_mm: float, fillet_radius_mm: float, threshold: float, steel_bolt_diameter_mm: float) -> None:
-        super().__init__(force_N, diameter_mm, length_mm, fillet_radius_mm, threshold)
+    def __init__(self, force_N: float, diameter_mm: float, length_mm: float, threshold: float, steel_bolt_diameter_mm: float) -> None:
+        super().__init__(force_N, diameter_mm, length_mm, 0, threshold)
         self.d_bolt = steel_bolt_diameter_mm
         self.r_bolt = steel_bolt_diameter_mm / 2
 
@@ -451,7 +451,6 @@ def build_stages(load_weight_kg: float, efficiency: float) -> List[Stage]:
             pin_force,
             PIN_DIAMETER_MM,
             PIN_LENGTH_MM,
-            PIN_FILLET_RADIUS_MM,
             MAX_SIGMA_ALLOWED_STEEL,
             M3_BOLT_DIAMETER_MM
         )
