@@ -378,7 +378,7 @@ class CarrierHub(Component):
 
 
 class Stage:
-    def __init__(self, index, *components):
+    def __init__(self, index, components):
         self.index = index
         self.components = components
         
@@ -426,6 +426,7 @@ def build_stages(load_weight_kg, efficiency):
             math.pow(2 * tangential_force, 2) +
             math.pow(2 * radial_force, 2)
         )
+        
         # pin = Pin(pin_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM, MAX_SIGMA_ALLOWED_PLA)
 
         pin = Pin(
@@ -443,18 +444,20 @@ def build_stages(load_weight_kg, efficiency):
             M3_BOLT_DIAMETER_MM
         )
 
-        carrier_hub = CarrierHub(
-            torque_n_mm=current_input_torque,
-            load_torque_n_mm=load_torque,
-            shaft_radius_mm=CARRIER_HUB_RADIUS_MM,
-            bolt_count=CARRIER_HUB_BOLT_COUNT,
-            bolt_circle_radius_mm=CARRIER_HUB_BOLT_CIRCLE_RADIUS_MM,
-            insert_diameter_mm=HEAT_INSERT_DIAMETER_MM,
-            insert_embed_depth_mm=HEAT_INSERT_EMBED_DEPTH_MM,
-            threshold=MAX_SIGMA_ALLOWED_PLA
-        )
-
-        stage = Stage(i, sun, planet, ring, pin, carrier_hub)
+        components = [sun, planet, ring, pin]
+        if i == STAGES_COUNT:
+            carrier_hub = CarrierHub(
+                torque_n_mm=current_input_torque,
+                load_torque_n_mm=load_torque,
+                shaft_radius_mm=CARRIER_HUB_RADIUS_MM,
+                bolt_count=CARRIER_HUB_BOLT_COUNT,
+                bolt_circle_radius_mm=CARRIER_HUB_BOLT_CIRCLE_RADIUS_MM,
+                insert_diameter_mm=HEAT_INSERT_DIAMETER_MM,
+                insert_embed_depth_mm=HEAT_INSERT_EMBED_DEPTH_MM,
+                threshold=MAX_SIGMA_ALLOWED_PLA
+            )
+            components.append(carrier_hub)
+        stage = Stage(i, components)
         stages.append(stage)
 
         stage_output_torque = current_input_torque * GEAR_RATIO * efficiency
