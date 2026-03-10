@@ -24,7 +24,6 @@ MAX_SIGMA_ALLOWED_STEEL = STEEL_STRENGTH_MEGA_PASCAL / SAFETY_FACTOR
 # GEAR SPECS
 # -------------------------
 GEAR_RATIO = 6
-
 PLANETS_COUNT = 3
 MODULE_MM = 1
 PRESSURE_ANGLE_DEGREE = 20
@@ -50,7 +49,6 @@ PLANET_FACE_WIDTH_MM = 8
 PIN_DIAMETER_MM = 5.27
 PIN_LENGTH_MM = 5
 PIN_FILLET_RADIUS_MM = 0.5
-
 M3_BOLT_DIAMETER_MM = 3.0
 
 # -------------------------
@@ -112,9 +110,7 @@ class Component(ABC):
         sigma, util, mos, _ = self.get_margin_data()
         check = "✅" if util < 1 else "❌"
         fem_output = self._format_fem() if util < 1 else "-"
-
         mos_str = " >9999" if mos > 9999 else f"{mos:7.2f}"
-
         print(
             f"{self.get_name():<15}"
             f"{check:<7}"
@@ -213,18 +209,17 @@ class Ring(Gear):
         return math.sqrt(math.pow(sigma_b + sigma_o, 2))
 
 
-class Pin(Component):
+class PinBase(Component):
     YOUNG_MODULUS_PLA_N_MM = 2500
     POISSONS_RATIO_PLA = 0.35
     SHEAR_MODULUS_PLA = YOUNG_MODULUS_PLA_N_MM / (2 * (1 + POISSONS_RATIO_PLA))
 
-    def __init__(self, force_N: float, diameter_mm: float, length_mm: float, fillet_radius_mm: float, threshold: float) -> None:
+    def __init__(self, force_N: float, diameter_mm: float, length_mm: float, threshold: float) -> None:
         super().__init__(threshold)
         self.F = force_N
         self.D = diameter_mm
         self.R = diameter_mm / 2
         self.L = length_mm
-        self.fillet_radius = fillet_radius_mm
 
     def _area(self, r: float) -> float:
         return math.pi * math.pow(r, 2)
@@ -236,6 +231,47 @@ class Pin(Component):
         M = self.F * self.L / 2
         I_outer = self._inertia(self.R)
         return self._sigma(M, I_outer)
+
+    def get_analytical_vm(self) -> float:
+        return self._von_mises()
+
+    def get_component_von_mises(self) -> float:
+        return self._von_mises()
+
+    def passes_check(self) -> bool:
+        return self._von_mises() <= self.threshold
+
+    def get_fem_loads(self) -> Dict[str, float]:
+        denom = math.sqrt(1 + math.pow(math.tan(PRESSURE_ANGLE_RADIANS), 2))
+        f_tangential_applied = self.F / denom
+        f_radial_applied = f_tangential_applied * math.tan(PRESSURE_ANGLE_RADIANS)
+        return {
+            "F_t (Tangential) N": round(f_tangential_applied, 2),
+            "F_r (Radial) N": round(f_radial_applied, 2),
+            "Deflection mm": round(self._deflection(), 4)
+        }
+
+    @abstractmethod
+    def _sigma(self, M: float, I: float) -> float:
+        pass
+
+    @abstractmethod
+    def _tau(self) -> float:
+        pass
+
+    @abstractmethod
+    def _von_mises(self) -> float:
+        pass
+
+    @abstractmethod
+    def _deflection(self) -> float:
+        pass
+
+
+class Pin(PinBase):
+    def __init__(self, force_N: float, diameter_mm: float, length_mm: float, fillet_radius_mm: float, threshold: float) -> None:
+        super().__init__(force_N, diameter_mm, length_mm, threshold)
+        self.fillet_radius = fillet_radius_mm
 
     def _kt(self) -> float:
         r_d = self.fillet_radius / self.D
@@ -257,25 +293,6 @@ class Pin(Component):
     def get_name(self) -> str:
         return "Pin"
 
-    def get_analytical_vm(self) -> float:
-        return self._von_mises()
-
-    def get_component_von_mises(self) -> float:
-        return self._von_mises()
-
-    def passes_check(self) -> bool:
-        return self._von_mises() <= self.threshold
-
-    def get_fem_loads(self) -> Dict[str, float]:
-        denom = math.sqrt(1 + math.pow(math.tan(PRESSURE_ANGLE_RADIANS), 2))
-        f_tangential_applied = self.F / denom
-        f_radial_applied = f_tangential_applied * math.tan(PRESSURE_ANGLE_RADIANS)
-        return {
-            "F_t (Tangential) N": round(f_tangential_applied, 2),
-            "F_r (Radial) N": round(f_radial_applied, 2),
-            "Deflection mm": round(self._deflection(), 4)
-        }
-
     def _sigma(self, M: float, I: float) -> float:
         return M * self.R / I
 
@@ -284,18 +301,15 @@ class Pin(Component):
         return 4 * self.F / (3 * area)
 
 
-class SupportedPin(Pin):
+class SupportedPin(PinBase):
     YOUNG_MODULUS_STEEL_N_MM = 200000
     POISSONS_RATIO_STEEL = 0.30
     SHEAR_MODULUS_STEEL = YOUNG_MODULUS_STEEL_N_MM / (2 * (1 + POISSONS_RATIO_STEEL))
 
     def __init__(self, force_N: float, diameter_mm: float, length_mm: float, threshold: float, steel_bolt_diameter_mm: float) -> None:
-        super().__init__(force_N, diameter_mm, length_mm, 0, threshold)
+        super().__init__(force_N, diameter_mm, length_mm, threshold)
         self.d_bolt = steel_bolt_diameter_mm
         self.r_bolt = steel_bolt_diameter_mm / 2
-
-    def get_component_von_mises(self) -> float:
-        return self._von_mises()
 
     def _deflection(self) -> float:
         I_outer = self._inertia(self.R)
@@ -312,10 +326,8 @@ class SupportedPin(Pin):
         A_total = self._area(self.R)
         A_steel = self._area(self.r_bolt)
         A_pla = A_total - A_steel
-
         share_steel = self.SHEAR_MODULUS_STEEL * A_steel
         share_pla = self.SHEAR_MODULUS_PLA * A_pla
-
         F_steel = self.F * share_steel / (share_steel + share_pla)
         return 4 * F_steel / (3 * A_steel)
 
@@ -331,15 +343,15 @@ class SupportedPin(Pin):
 
 class CarrierHub(Component):
     def __init__(
-        self,
-        torque_n_mm: float,
-        load_torque_n_mm: float,
-        shaft_radius_mm: float,
-        bolt_count: int,
-        bolt_circle_radius_mm: float,
-        insert_diameter_mm: float,
-        insert_embed_depth_mm: float,
-        threshold: float
+            self,
+            torque_n_mm: float,
+            load_torque_n_mm: float,
+            shaft_radius_mm: float,
+            bolt_count: int,
+            bolt_circle_radius_mm: float,
+            insert_diameter_mm: float,
+            insert_embed_depth_mm: float,
+            threshold: float
     ) -> None:
         super().__init__(threshold)
         self.torque = torque_n_mm
@@ -392,10 +404,10 @@ class Stage:
     def __init__(self, index: int, components: List[Component]) -> None:
         self.index = index
         self.components = components
-        
+
     def get_stage_utilization(self) -> float:
         return max([c.get_margin_data()[1] for c in self.components])
-    
+
     def display(self) -> None:
         print(f"Stage {self.index} results:")
         print("Component\tPass\tVM MPa\t\tU\tMoS\t\t\t\tFem\n")
@@ -409,11 +421,9 @@ class Stage:
 
 def build_stages(load_weight_kg: float, efficiency: float) -> List[Stage]:
     stages: List[Stage] = []
-
     load_torque = load_weight_kg * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
     total_ratio = math.pow(GEAR_RATIO, STAGES_COUNT)
     total_efficiency = math.pow(efficiency, STAGES_COUNT)
-
     current_input_torque = load_torque / (total_ratio * total_efficiency)
 
     for i in range(1, STAGES_COUNT + 1):
@@ -438,8 +448,6 @@ def build_stages(load_weight_kg: float, efficiency: float) -> List[Stage]:
             math.pow(2 * tangential_force, 2) +
             math.pow(2 * radial_force, 2)
         )
-        
-         # pin = Pin(pin_force, PIN_DIAMETER_MM, PIN_LENGTH_MM, PIN_FILLET_RADIUS_MM, MAX_SIGMA_ALLOWED_PLA)
 
         pin = Pin(
             pin_force,
@@ -486,10 +494,8 @@ def evaluate_system_utilization(load_weight_kg: float, efficiency: float) -> flo
 
 def display_stage_results(load_weight_kg: float, efficiency: float) -> None:
     stages = build_stages(load_weight_kg, efficiency)
-
     for stage in stages:
         stage.display()
-
         if not stage.check_passed():
             print(f"Stage {stage.index} failed stress check ❌.\n")
             return
@@ -498,13 +504,11 @@ def display_stage_results(load_weight_kg: float, efficiency: float) -> None:
 
 def find_max_safe_load(test_efficiency: float) -> Tuple[float, float]:
     dummy_load_kg = 1.0
-
     max_util = evaluate_system_utilization(dummy_load_kg, test_efficiency)
     stress_limited_load = dummy_load_kg / max_util
 
     total_ratio = math.pow(GEAR_RATIO, STAGES_COUNT)
     total_efficiency = math.pow(test_efficiency, STAGES_COUNT)
-
     torque_limited_load = (
             MOTOR_TORQUE_N_MM
             * total_ratio
@@ -519,17 +523,14 @@ def find_max_safe_load(test_efficiency: float) -> Tuple[float, float]:
 
 
 if __name__ == "__main__":
-
     print("-" * 50)
     print("1. SYSTEM CHECK")
     print("-" * 50)
-
     display_stage_results(LOAD_WEIGHT_KG, EFFICIENCY)
 
     print("-" * 50)
     print("2. EFFICIENCY SWEEP: MAXIMUM SAFE LOAD CAPACITY")
     print("-" * 50)
-
     for eff in [EFFICIENCY, 0.90]:
         max_kg, max_torque = find_max_safe_load(eff)
         print(f"Efficiency {eff*100:.0f}% | Max Safe Load: {max_kg:5.2f} kg ({max_torque:4.0f} N·mm)")
