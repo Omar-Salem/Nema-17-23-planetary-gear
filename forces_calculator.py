@@ -84,12 +84,12 @@ MOTOR_TORQUE_N_MM = 340
 
 
 class Component(ABC):
-    def __init__(self, threshold: float) -> None:
+    def __init__(self, name: str, threshold: float) -> None:
+        self.name = name
         self.threshold = threshold
 
-    @abstractmethod
     def get_name(self) -> str:
-        pass
+        return self.name
 
     @abstractmethod
     def get_component_von_mises(self) -> float:
@@ -139,7 +139,7 @@ class Gear(Component):
     }
 
     def __init__(self, teeth_count: int, face_width_mm: float, effective_force: float, name: str, threshold: float) -> None:
-        super().__init__(threshold)
+        super().__init__(name,threshold)
         self.teeth_count = teeth_count
         self.face_width_mm = face_width_mm
         self.pitch_radius_mm = (MODULE_MM * self.teeth_count) / 2
@@ -153,9 +153,6 @@ class Gear(Component):
 
     def passes_check(self) -> bool:
         return self._calculate_bending_stress() < self.threshold
-
-    def get_name(self) -> str:
-        return self.name
 
     def _calculate_bending_stress(self) -> float:
         lewis_y = self._get_lewis_form_factor(self.teeth_count)
@@ -214,8 +211,8 @@ class PinBase(Component):
     POISSONS_RATIO_PLA = 0.35
     SHEAR_MODULUS_PLA = YOUNG_MODULUS_PLA_N_MM / (2 * (1 + POISSONS_RATIO_PLA))
 
-    def __init__(self, force_N: float, diameter_mm: float, length_mm: float, threshold: float) -> None:
-        super().__init__(threshold)
+    def __init__(self, force_N: float, diameter_mm: float, length_mm: float, threshold: float, name: str) -> None:
+        super().__init__(name, threshold)
         self.F = force_N
         self.D = diameter_mm
         self.R = diameter_mm / 2
@@ -270,7 +267,7 @@ class PinBase(Component):
 
 class Pin(PinBase):
     def __init__(self, force_N: float, diameter_mm: float, length_mm: float, fillet_radius_mm: float, threshold: float) -> None:
-        super().__init__(force_N, diameter_mm, length_mm, threshold)
+        super().__init__(force_N, diameter_mm, length_mm, threshold, "Pin")
         self.fillet_radius = fillet_radius_mm
 
     def _kt(self) -> float:
@@ -290,9 +287,6 @@ class Pin(PinBase):
         EI = self.YOUNG_MODULUS_PLA_N_MM * I
         return self.F * math.pow(self.L, 3) / (8 * EI)
 
-    def get_name(self) -> str:
-        return "Pin"
-
     def _sigma(self, M: float, I: float) -> float:
         return M * self.R / I
 
@@ -307,7 +301,7 @@ class SupportedPin(PinBase):
     SHEAR_MODULUS_STEEL = YOUNG_MODULUS_STEEL_N_MM / (2 * (1 + POISSONS_RATIO_STEEL))
 
     def __init__(self, force_N: float, diameter_mm: float, length_mm: float, threshold: float, steel_bolt_diameter_mm: float) -> None:
-        super().__init__(force_N, diameter_mm, length_mm, threshold)
+        super().__init__(force_N, diameter_mm, length_mm, threshold, "SupportedPin")
         self.d_bolt = steel_bolt_diameter_mm
         self.r_bolt = steel_bolt_diameter_mm / 2
 
@@ -337,9 +331,6 @@ class SupportedPin(PinBase):
         I_trans = (I_outer - I_inner) + n * I_inner
         return n * M * self.r_bolt / I_trans
 
-    def get_name(self) -> str:
-        return "SupportedPin"
-
 
 class CarrierHub(Component):
     def __init__(
@@ -353,7 +344,7 @@ class CarrierHub(Component):
             insert_embed_depth_mm: float,
             threshold: float
     ) -> None:
-        super().__init__(threshold)
+        super().__init__("CarrierHub", threshold)
         self.torque = torque_n_mm
         self.load_torque_n_mm = load_torque_n_mm
         self.shaft_radius = shaft_radius_mm
@@ -361,9 +352,6 @@ class CarrierHub(Component):
         self.bolt_circle_radius = bolt_circle_radius_mm
         self.insert_diameter = insert_diameter_mm
         self.insert_embed_depth = insert_embed_depth_mm
-
-    def get_name(self) -> str:
-        return "CarrierHub"
 
     def _shaft_torsion(self) -> float:
         return (2 * self.torque) / (math.pi * math.pow(self.shaft_radius, 3))
