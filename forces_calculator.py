@@ -109,7 +109,6 @@ class Component(ABC):
     def display(self) -> None:
         sigma, util, mos, _ = self.get_margin_data()
         check = "✅" if util < 1 else "❌"
-        fem_output = self._format_fem() if util < 1 else "-"
         mos_str = " >9999" if mos > 9999 else f"{mos:7.2f}"
         print(
             f"{self.get_name():<15}"
@@ -117,7 +116,7 @@ class Component(ABC):
             f"{sigma :<15.2f} "
             f"{util:<5.2f} "
             f"{mos_str:<9} "
-            f"{fem_output}"
+            f"{self._format_fem()}"
         )
 
     def _format_fem(self) -> str:
@@ -436,20 +435,28 @@ def build_stages(load_weight_kg: float, efficiency: float) -> List[Stage]:
             math.pow(2 * tangential_force, 2) +
             math.pow(2 * radial_force, 2)
         )
-
+        
         pin = Pin(
             pin_force,
             PIN_DIAMETER_MM,
             PIN_LENGTH_MM,
             PIN_FILLET_RADIUS_MM,
             MAX_SIGMA_ALLOWED_PLA
-        ) if i < STAGES_COUNT else SupportedPin(
-            pin_force,
-            PIN_DIAMETER_MM,
-            PIN_LENGTH_MM,
-            MAX_SIGMA_ALLOWED_STEEL,
-            M3_BOLT_DIAMETER_MM
         )
+
+        # pin = Pin(
+        #     pin_force,
+        #     PIN_DIAMETER_MM,
+        #     PIN_LENGTH_MM,
+        #     PIN_FILLET_RADIUS_MM,
+        #     MAX_SIGMA_ALLOWED_PLA
+        # ) if i < STAGES_COUNT else SupportedPin(
+        #     pin_force,
+        #     PIN_DIAMETER_MM,
+        #     PIN_LENGTH_MM,
+        #     MAX_SIGMA_ALLOWED_STEEL,
+        #     M3_BOLT_DIAMETER_MM
+        # )
 
         components = [sun, planet, ring, pin]
 
