@@ -9,8 +9,8 @@ FILE_DESCRIPTION(
 /* implementation_level */ '2;1');
 
 FILE_NAME(
-/* name */ 'SunTop v1.step',
-/* time_stamp */ '2026-02-06T19:15:00+11:00',
+/* name */ 'SunTop.step',
+/* time_stamp */ '2026-03-14T14:47:12+11:00',
 /* author */ (''),
 /* organization */ (''),
 /* preprocessor_version */ 'ST-DEVELOPER v20.1',

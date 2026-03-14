@@ -396,10 +396,10 @@ class CarrierHub(Component):
 
         return {
             "Shaft Tangential Force (N)": shaft_tangential_force,
-            "Force per Bolt - Shear (N)": bolt_shear,
-            "Force per Bolt - Tension (N)": bolt_tension,
-            "Total Bolt Shear Force (N)": bolt_shear * self.bolt_count,
-            "Total Bolt Tension Force (N)": bolt_tension * self.bolt_count
+            "Bolt Shear Force Each (N)": bolt_shear,
+            "Bolt Tension Force Each (N)": bolt_tension,
+            "Total Tangential Bolt Load (N)": bolt_shear * self.bolt_count,
+            "Total Axial Bolt Load (N)": bolt_tension * self.bolt_count
         }
 
 
