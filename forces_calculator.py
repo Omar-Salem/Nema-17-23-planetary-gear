@@ -137,8 +137,9 @@ class Gear(Component):
         100: 0.446, 150: 0.458, 200: 0.463, 300: 0.471
     }
 
-    def __init__(self, teeth_count: int, face_width_mm: float, effective_force: float, name: str, threshold: float) -> None:
-        super().__init__(name,threshold)
+    def __init__(self, teeth_count: int, face_width_mm: float, effective_force: float, name: str,
+                 threshold: float) -> None:
+        super().__init__(name, threshold)
         self.teeth_count = teeth_count
         self.face_width_mm = face_width_mm
         self.pitch_radius_mm = (MODULE_MM * self.teeth_count) / 2
@@ -180,7 +181,8 @@ class Gear(Component):
 
 
 class Ring(Gear):
-    def __init__(self, teeth_count: int, face_width_mm: float, tangential_force: float, radial_force: float, thickness: float, threshold: float) -> None:
+    def __init__(self, teeth_count: int, face_width_mm: float, tangential_force: float, radial_force: float,
+                 thickness: float, threshold: float) -> None:
         super().__init__(teeth_count, face_width_mm, tangential_force, "Ring", threshold)
         self.thickness = thickness
         self.radial_force = radial_force
@@ -265,7 +267,8 @@ class PinBase(Component):
 
 
 class Pin(PinBase):
-    def __init__(self, force_N: float, diameter_mm: float, length_mm: float, fillet_radius_mm: float, threshold: float) -> None:
+    def __init__(self, force_N: float, diameter_mm: float, length_mm: float, fillet_radius_mm: float,
+                 threshold: float) -> None:
         super().__init__(force_N, diameter_mm, length_mm, threshold, "Pin")
         self.fillet_radius = fillet_radius_mm
 
@@ -299,7 +302,8 @@ class SupportedPin(PinBase):
     POISSONS_RATIO_STEEL = 0.30
     SHEAR_MODULUS_STEEL = YOUNG_MODULUS_STEEL_N_MM / (2 * (1 + POISSONS_RATIO_STEEL))
 
-    def __init__(self, force_N: float, diameter_mm: float, length_mm: float, threshold: float, steel_bolt_diameter_mm: float) -> None:
+    def __init__(self, force_N: float, diameter_mm: float, length_mm: float, threshold: float,
+                 steel_bolt_diameter_mm: float) -> None:
         super().__init__(force_N, diameter_mm, length_mm, threshold, "SupportedPin")
         self.d_bolt = steel_bolt_diameter_mm
         self.r_bolt = steel_bolt_diameter_mm / 2
@@ -344,6 +348,8 @@ class CarrierHub(Component):
             threshold: float
     ) -> None:
         super().__init__("CarrierHub", threshold)
+        if bolt_count <= 0:
+            raise Exception("Bolts needed.")
         self.torque = torque_n_mm
         self.load_torque_n_mm = load_torque_n_mm
         self.shaft_radius = shaft_radius_mm
@@ -364,17 +370,16 @@ class CarrierHub(Component):
         return math.sqrt(math.pow(sigma_b, 2) + 3 * math.pow(tau_t, 2))
 
     def _bolt_shear_force(self) -> float:
-        if self.bolt_count == 0: return 0
         return self.torque / (self.bolt_count * self.bolt_circle_radius)
 
     def _bolt_tension_from_bending(self) -> float:
-        if self.bolt_count == 0: return 0
         return self.load_torque_n_mm / (self.bolt_count * self.bolt_circle_radius)
 
     def _insert_pullout(self) -> float:
         tension = self._bolt_tension_from_bending()
         shear_area = math.pi * self.insert_diameter * self.insert_embed_depth
-        if shear_area == 0: return 0
+        if shear_area == 0:
+            return 0
         return tension / shear_area
 
     def get_component_von_mises(self) -> float:
@@ -384,7 +389,18 @@ class CarrierHub(Component):
         return self.get_component_von_mises() < self.threshold
 
     def get_fem_loads(self) -> Dict[str, float]:
-        return {"Input Torque N·mm": self.torque, "Load Torque (Bending) N·mm": self.load_torque_n_mm}
+        shaft_tangential_force = self.torque / self.shaft_radius
+
+        bolt_shear = self._bolt_shear_force()
+        bolt_tension = self._bolt_tension_from_bending()
+
+        return {
+            "Shaft Tangential Force (N)": shaft_tangential_force,
+            "Force per Bolt - Shear (N)": bolt_shear,
+            "Force per Bolt - Tension (N)": bolt_tension,
+            "Total Bolt Shear Force (N)": bolt_shear * self.bolt_count,
+            "Total Bolt Tension Force (N)": bolt_tension * self.bolt_count
+        }
 
 
 class Stage:
@@ -435,7 +451,7 @@ def build_stages(load_weight_kg: float, efficiency: float) -> List[Stage]:
             math.pow(2 * tangential_force, 2) +
             math.pow(2 * radial_force, 2)
         )
-        
+
         pin = Pin(
             pin_force,
             PIN_DIAMETER_MM,
@@ -528,4 +544,4 @@ if __name__ == "__main__":
     print("-" * 50)
     for eff in [EFFICIENCY, 0.90]:
         max_kg, max_torque = find_max_safe_load(eff)
-        print(f"Efficiency {eff*100:.0f}% | Max Safe Load: {max_kg:5.2f} kg ({max_torque:4.0f} N·mm)")
+        print(f"Efficiency {eff * 100:.0f}% | Max Safe Load: {max_kg:5.2f} kg ({max_torque:4.0f} N·mm)")
