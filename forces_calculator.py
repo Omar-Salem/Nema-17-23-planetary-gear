@@ -6,7 +6,8 @@ from typing import Dict, List, Tuple
 # ASSUMPTIONS
 # -------------------------
 LEWIS_CORRECTION_FACTOR = 1.2
-EFFICIENCY = 0.8
+GEAR_EFFICIENCY = 0.8
+MOTOR_EFFICIENCY = 0.6
 SAFETY_FACTOR = 3
 LOAD_SHARING_FACTOR = 1
 
@@ -80,7 +81,7 @@ LOAD_LEVER_ARM_MM = 100
 # -------------------------
 # MOTOR
 # -------------------------
-MOTOR_TORQUE_N_MM = 340
+MOTOR_TORQUE_N_MM = 340 * MOTOR_EFFICIENCY
 
 
 class Component(ABC):
@@ -537,11 +538,11 @@ if __name__ == "__main__":
     print("-" * 50)
     print("1. SYSTEM CHECK")
     print("-" * 50)
-    display_stage_results(LOAD_WEIGHT_KG, EFFICIENCY)
+    display_stage_results(LOAD_WEIGHT_KG, GEAR_EFFICIENCY)
 
     print("-" * 50)
     print("2. EFFICIENCY SWEEP: MAXIMUM SAFE LOAD CAPACITY")
     print("-" * 50)
-    for eff in [EFFICIENCY, 0.90]:
+    for eff in [GEAR_EFFICIENCY, 0.90]:
         max_kg, max_torque = find_max_safe_load(eff)
         print(f"Efficiency {eff * 100:.0f}% | Max Safe Load: {max_kg:5.2f} kg ({max_torque:4.0f} N·mm)")
