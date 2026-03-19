@@ -7,7 +7,6 @@ from typing import Dict, List, Tuple
 # -------------------------
 LEWIS_CORRECTION_FACTOR = 1.2
 GEAR_EFFICIENCY = 0.8
-MOTOR_EFFICIENCY = 0.6
 SAFETY_FACTOR = 3
 LOAD_SHARING_FACTOR = 1
 
@@ -81,7 +80,7 @@ LOAD_LEVER_ARM_MM = 100
 # -------------------------
 # MOTOR
 # -------------------------
-MOTOR_TORQUE_N_MM = 340 * MOTOR_EFFICIENCY
+MOTOR_TORQUE_N_MM = 340 
 
 
 class Component(ABC):
