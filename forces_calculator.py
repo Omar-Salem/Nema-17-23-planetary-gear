@@ -460,19 +460,19 @@ def build_stages(load_weight_kg: float, efficiency: float) -> List[Stage]:
             MAX_SIGMA_ALLOWED_PLA
         )
 
-        # pin = Pin(
-        #     pin_force,
-        #     PIN_DIAMETER_MM,
-        #     PIN_LENGTH_MM,
-        #     PIN_FILLET_RADIUS_MM,
-        #     MAX_SIGMA_ALLOWED_PLA
-        # ) if i < STAGES_COUNT else SupportedPin(
-        #     pin_force,
-        #     PIN_DIAMETER_MM,
-        #     PIN_LENGTH_MM,
-        #     MAX_SIGMA_ALLOWED_STEEL,
-        #     M3_BOLT_DIAMETER_MM
-        # )
+        pin = Pin(
+            pin_force,
+            PIN_DIAMETER_MM,
+            PIN_LENGTH_MM,
+            PIN_FILLET_RADIUS_MM,
+            MAX_SIGMA_ALLOWED_PLA
+        ) if i < STAGES_COUNT else SupportedPin(
+            pin_force,
+            PIN_DIAMETER_MM,
+            PIN_LENGTH_MM,
+            MAX_SIGMA_ALLOWED_STEEL,
+            M3_BOLT_DIAMETER_MM
+        )
 
         components = [sun, planet, ring, pin]
 
