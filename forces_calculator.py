@@ -542,6 +542,6 @@ if __name__ == "__main__":
     print("-" * 50)
     print("2. EFFICIENCY SWEEP: MAXIMUM SAFE LOAD CAPACITY")
     print("-" * 50)
-    for eff in [GEAR_EFFICIENCY, 0.90]:
+    for eff in [0.8, 0.85, 0.90]:
         max_kg, max_torque = find_max_safe_load(eff)
         print(f"Efficiency {eff * 100:.0f}% | Max Safe Load: {max_kg:5.2f} kg ({max_torque:4.0f} N·mm)")
