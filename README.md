@@ -247,7 +247,9 @@ Print 6 `Planet`s ($n_{stages} \times n_{planetsPerStage}$)
 
 Print 2 `SunTop`s (_1 per stage_)
 
-Print takes ~5 hours and ~100 gm of filament
+Print takes ~4.5 hours and ~92 gm of filament on bambu lab a1 mini (default settings)
+
+![](assets/build%20plate.png)
 
 ### Assembly
 Press the heat sinks into the ring and the sun gear onto the motor shaft. Secure the ring to the motor using four 6mm M3 bolts. 
