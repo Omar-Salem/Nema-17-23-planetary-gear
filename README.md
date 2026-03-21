@@ -260,4 +260,7 @@ Repeat these steps for the second stage, adding the three 10mm M3 bolt pin suppo
 
 Finally, fit the 35mm bearing onto the output shaft, attach the cover with three 16mm M3 bolts, and press the remaining heat sinks into the cover and output shaft.
 
-[assembly.mp4](https://github.com/Omar-Salem/Nema-17-23-planetary-gear/blob/master/assets/assembly.mp4)
+
+https://github.com/user-attachments/assets/527c2508-7acf-4f8b-a0d8-41f765740e9c
+
+
