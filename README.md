@@ -252,15 +252,25 @@ Print takes ~4.5 hours and ~92 gm of filament on bambu lab a1 mini (default sett
 ![](assets/build%20plate.png)
 
 ### Assembly
-Press the heat sinks into the ring and the sun gear onto the motor shaft. Secure the ring to the motor using four 6mm M3 bolts. 
+1. Press the heat sinks into the ring.
 
-Seat the first 12mm bearing into the first stage, followed by the sun top to lock the gear in place. Install the three 5mm bearings onto the pins, mount the planet gears, and slide the first stage into position. 
+1. Secure the sun gear onto the motor shaft. 
+
+1. Bolt the ring to the motor using four 6mm M3 bolts. 
+
+1. Seat the first 12mm bearing into the first stage, followed by the sun top to lock the sun in place. 
+
+1. Install the three 5mm bearings onto the pins, mount the planet gears, and slide the first stage into position. 
 
 
-Repeat these steps for the second stage, adding the three 10mm M3 bolt pin supports. 
+1. Repeat these steps for the second stage, adding the three 10mm M3 bolt pin supports. 
 
 
-Finally, fit the 35mm bearing onto the output shaft, attach the cover with three 16mm M3 bolts, and press the remaining heat sinks into the cover and output shaft.
+1. Fit the 35mm bearing onto the output shaft.
+
+1. Attach the cover with three 16mm M3 bolts.
+
+1. Press the remaining heat sinks into the cover and output shaft.
 
 
 https://github.com/user-attachments/assets/527c2508-7acf-4f8b-a0d8-41f765740e9c
