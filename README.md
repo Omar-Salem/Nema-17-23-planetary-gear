@@ -3,7 +3,7 @@
 A fully parametric planetary gearbox designed for NEMA 17/23 motors.
 Gear ratio, backlash, and geometry can be adjusted through parameters.
 
-![](images/fully%20assembled.png)
+![](assets/fully%20assembled.png)
 
 ### Software Requirements 
 [Fusion 360 (free to download)](https://www.autodesk.com/campaigns/fusion-360/download)
@@ -50,41 +50,41 @@ The gearbox is built in three stages:
 
 Create a new project and import the .f3d files
 
-![](images/uploaded.png)
+![](assets/uploaded.png)
 
 Open `GearGenerator`
 
 Have a look at the params
 
-![](images/gear%20generator%20params.png)
+![](assets/gear%20generator%20params.png)
 
 Start creating the sun gear, open `Helical Gear+`
 
-![](images/plugin.png)
+![](assets/plugin.png)
 
 Fill the fields with the sun gear params
 
-![](images/sun.png)
+![](assets/sun.png)
 
 (_Advanced config will be the same for planet and ring_)
 
-![](images/all%20gears%20.png)
+![](assets/all%20gears%20.png)
 
 In the same manner create the planet gear
 
-![](images/planet.png)
+![](assets/planet.png)
 
 And the ring gear, don't forget to change Type to `Internal Gear`
 
-![](images/ring.png)
+![](assets/ring.png)
 
 You should end up with this
 
-![](images/generated%20gears.png)
+![](assets/generated%20gears.png)
 
 Export ring gear as `RingTemp` to your project
 
-![](images/export%20ring.png)
+![](assets/export%20ring.png)
 
 In the same manner, export planet gear as `PlanetTemp` and sun gear as `SunTemp`
 
@@ -95,39 +95,39 @@ Close current design without saving
 
 Open `SunModifier`
 
-![](images/open%20Sun.png)
+![](assets/open%20Sun.png)
 
 Check its params as well
 
-![](images/sun%20params.png)
+![](assets/sun%20params.png)
 
 Insert the `SunTemp` component
 
-![](images/insert%20z_sun%20into%20current%20design.png)
+![](assets/insert%20z_sun%20into%20current%20design.png)
 
 Break the link
 
-![](images/break%20link.png)
+![](assets/break%20link.png)
 
 Extrude and fillet the bearing mount, make sure operation for extrude is `Join`
 
-![](images/extrude.png)
-![](images/fillet.png)
+![](assets/extrude.png)
+![](assets/fillet.png)
 
 Export component as `Sun` to your project
 
 Cut and fillet motor shaft
 
-![](images/cut%20shaft.png)
-![](images/fillet%20shaft.png)
+![](assets/cut%20shaft.png)
+![](assets/fillet%20shaft.png)
 
 Chamfer from the inside
 
-![](images/shaft%20chamfer.png)
+![](assets/shaft%20chamfer.png)
 
 Should end up with this
 
-![](images/motor%20shaft%20analysis.png)
+![](assets/motor%20shaft%20analysis.png)
 
 Export component to project as `MotorInput`
 
@@ -138,25 +138,25 @@ _If you create another gearbox with a different gear ratio, `Sun` and `MotorInpu
 ---
 In the same manner, open `PlanetModifier` and insert `PlanetTemp`
 
-![](images/open%20Planet%20sktech%20and%20insert%20planet.png)
+![](assets/open%20Planet%20sktech%20and%20insert%20planet.png)
 
 Break link
 
 Cut hole for bearing
 
-![](images/cut%20bearing.png)
+![](assets/cut%20bearing.png)
 
 Fillet
 
-![](images/fillet%202.png)
+![](assets/fillet%202.png)
 
 Cut hole for bearing lip
 
-![](images/cut%20for%20bearing%20lip%20hole.png)
+![](assets/cut%20for%20bearing%20lip%20hole.png)
 
 Should end up with this
 
-![](images/Planet%20analysis.png)
+![](assets/Planet%20analysis.png)
 
 Export to project as `Planet`, close current design without saving, move `PlanetTemp` to trash
 
@@ -166,19 +166,19 @@ We now have all the components, time to combine them
 
 In a new Hybrid Design, import `RingBottom`, `RingTemp` and `RingTop`
 
-![](images/new%20hybrid%20design,%20insert%20ring,ring%20top%20and%20ring%20bottom.png)
+![](assets/new%20hybrid%20design,%20insert%20ring,ring%20top%20and%20ring%20bottom.png)
 
 Break link any of them
 
 Join `RingBottom` and `RingTemp` at their bottoms
 
-![](images/join%20ring%20bottom%20and%20ring%20at%20the%20bottom.png)
+![](assets/join%20ring%20bottom%20and%20ring%20at%20the%20bottom.png)
 
 Join `RingTemp`'s top and `RingTop`'s bottom
 
 Should end up with this
 
-![](images/ring_joined.png)
+![](assets/ring_joined.png)
 
 Combine all of them as new component, export it to project as `Ring`, close current design without saving, move `RingTemp` to trash
 
@@ -188,7 +188,7 @@ Open `CarrierGenerator`, note the timeline is pulled 2 steps
 
 
 
-![](images/carrier_timeline.png)
+![](assets/carrier_timeline.png)
 
 insert `Sun`
 
@@ -196,11 +196,11 @@ Break link any of them
 
 Join `Sun`'s bottom with `Carrier`'s top at their centers
 
-![](images/join%20sun%20bottom%20at%20carrier%20top%20(centers).png)
+![](assets/join%20sun%20bottom%20at%20carrier%20top%20(centers).png)
 
 Should end up with this
 
-![](images/first%20stage%20joined.png)
+![](assets/first%20stage%20joined.png)
 
 Combine all of the as new component, export it to project as `FirstStage`
 
@@ -214,13 +214,13 @@ Open `CarrierGenerator`, move the timeline marker all the way to the end
 
 Insert `CarrierOutput`
 
-![](images/in%20same%20manner,%20create%20second%20stage%20using%20output%20component.png)
+![](assets/in%20same%20manner,%20create%20second%20stage%20using%20output%20component.png)
 
 Break link any of them, join `CarrierOutput` bottom at `CarrierGenerator`'s top at their centers
 
 Should end up with this
 
-![](images/second%20stage%20joined.png)
+![](assets/second%20stage%20joined.png)
 
 Combine all as new component, export it to project as `SecondStage`
 
@@ -236,7 +236,7 @@ Combine all as new component, export it to project as `SecondStage`
 
 ❗ Make sure you print `SecondStage` at 45&deg; with 100% infill as it handles the most torque
 
-![](images/carrier%2045.png)
+![](assets/carrier%2045.png)
 
 
 [The Correct Orientation to Print Boxes](https://www.youtube.com/watch?v=8NKVNwVaZU0)
@@ -248,3 +248,16 @@ Print 6 `Planet`s ($n_{stages} \times n_{planetsPerStage}$)
 Print 2 `SunTop`s (_1 per stage_)
 
 Print takes ~5 hours and ~100 gm of filament
+
+### Assembly
+Press the heat sinks into the ring and the sun gear onto the motor shaft. Secure the ring to the motor using four 6mm M3 bolts. 
+
+Seat the first 12mm bearing into the first stage, followed by the sun top to lock the gear in place. Install the three 5mm bearings onto the pins, mount the planet gears, and slide the first stage into position. 
+
+
+Repeat these steps for the second stage, adding the three 10mm M3 bolt pin supports. 
+
+
+Finally, fit the 35mm bearing onto the output shaft, attach the cover with three 16mm M3 bolts, and press the remaining heat sinks into the cover and output shaft.
+
+![](assets/assembly.mp4)
