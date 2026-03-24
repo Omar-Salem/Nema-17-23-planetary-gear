@@ -513,25 +513,37 @@ def display_stage_results(load_weight_kg: float, efficiency: float) -> None:
         print(f"Stage {stage.index} passed stress check ✅.\n")
 
 
-def find_max_safe_load(test_efficiency: float) -> Tuple[float, float]:
-    dummy_load_kg = 1.0
-    max_util = evaluate_system_utilization(dummy_load_kg, test_efficiency)
-    stress_limited_load = dummy_load_kg / max_util
+def find_max_safe_load() -> Tuple[float, float]:
+    step = 0.1  # kg resolution
+    max_load = 0.0
 
-    total_ratio = math.pow(GEAR_RATIO, STAGES_COUNT)
-    total_efficiency = math.pow(test_efficiency, STAGES_COUNT)
-    torque_limited_load = (
-            MOTOR_TORQUE_N_MM
-            * total_ratio
-            * total_efficiency
-            / (GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM)
-    )
+    load = step
 
-    final_load = min(stress_limited_load, torque_limited_load)
-    final_torque = final_load * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
+    while True:
+        utilization = evaluate_system_utilization(load, GEAR_EFFICIENCY)
 
-    return final_load, final_torque
+        # Stop if stress limit reached
+        if utilization >= 1.0:
+            break
 
+        # Torque limit check
+        total_ratio = math.pow(GEAR_RATIO, STAGES_COUNT)
+        total_efficiency = math.pow(GEAR_EFFICIENCY, STAGES_COUNT)
+
+        required_input_torque = (
+            load * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
+            / (total_ratio * total_efficiency)
+        )
+
+        if required_input_torque > MOTOR_TORQUE_N_MM:
+            break
+
+        max_load = load
+        load += step
+
+    final_torque = max_load * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
+
+    return max_load, final_torque
 
 if __name__ == "__main__":
     print("-" * 50)
@@ -540,8 +552,7 @@ if __name__ == "__main__":
     display_stage_results(LOAD_WEIGHT_KG, GEAR_EFFICIENCY)
 
     print("-" * 50)
-    print("2. EFFICIENCY SWEEP: MAXIMUM SAFE LOAD CAPACITY")
+    print("2. MAXIMUM SAFE LOAD CAPACITY")
     print("-" * 50)
-    for eff in [0.8, 0.85, 0.90]:
-        max_kg, max_torque = find_max_safe_load(eff)
-        print(f"Efficiency {eff * 100:.0f}% | Max Safe Load: {max_kg:5.2f} kg ({max_torque:4.0f} N·mm)")
+    max_kg, max_torque = find_max_safe_load()
+    print(f"Max Safe Load: {max_kg:5.2f} kg ({max_torque:4.0f} N·mm)")
