@@ -8,14 +8,18 @@ from typing import Dict, List, Tuple
 LEWIS_CORRECTION_FACTOR = 1.2
 GEAR_EFFICIENCY = 0.8
 SAFETY_FACTOR = 3
+COMPLIANCE_FACTOR_PLA = 4.0  # Multiplier to estimate real-world slop from theoretical backlash
 LOAD_SHARING_FACTOR = 1
 
 # -------------------------
 # GLOBAL PARAMETERS
 # -------------------------
 GRAVITY_METER_SEC_SEC = 9.81
+
+PLA_ELASTIC_MODULUS_REDUCTION = 0.6
 PLA_STRENGTH_MEGA_PASCAL = 45  # N/mm²
 MAX_SIGMA_ALLOWED_PLA = PLA_STRENGTH_MEGA_PASCAL / SAFETY_FACTOR
+
 
 STEEL_STRENGTH_MEGA_PASCAL = 1080
 MAX_SIGMA_ALLOWED_STEEL = STEEL_STRENGTH_MEGA_PASCAL / SAFETY_FACTOR
@@ -29,6 +33,8 @@ MODULE_MM = 1
 PRESSURE_ANGLE_DEGREE = 20
 PRESSURE_ANGLE_RADIANS = math.radians(PRESSURE_ANGLE_DEGREE)
 STAGES_COUNT = 2
+TOOTH_BACKLASH_MM = 0.2  # per gear tooth
+ASSEMBLY_TOLERANCE_MM = 0.1
 
 # -------------------------
 # SUN
@@ -458,14 +464,6 @@ def build_stages(load_weight_kg: float, efficiency: float) -> List[Stage]:
             PIN_LENGTH_MM,
             PIN_FILLET_RADIUS_MM,
             MAX_SIGMA_ALLOWED_PLA
-        )
-
-        pin = Pin(
-            pin_force,
-            PIN_DIAMETER_MM,
-            PIN_LENGTH_MM,
-            PIN_FILLET_RADIUS_MM,
-            MAX_SIGMA_ALLOWED_PLA
         ) if i < STAGES_COUNT else SupportedPin(
             pin_force,
             PIN_DIAMETER_MM,
@@ -522,11 +520,9 @@ def find_max_safe_load() -> Tuple[float, float]:
     while True:
         utilization = evaluate_system_utilization(load, GEAR_EFFICIENCY)
 
-        # Stop if stress limit reached
         if utilization >= 1.0:
             break
 
-        # Torque limit check
         total_ratio = math.pow(GEAR_RATIO, STAGES_COUNT)
         total_efficiency = math.pow(GEAR_EFFICIENCY, STAGES_COUNT)
 
@@ -545,6 +541,43 @@ def find_max_safe_load() -> Tuple[float, float]:
 
     return max_load, final_torque
 
+def calculate_system_backlash() -> Tuple[float, float, float]:
+    """
+    Calculates the total angular and linear backlash at the final output shaft.
+    Returns: (backlash_radians, backlash_degrees, linear_backlash_at_load_mm)
+    """
+    # Angular backlash of a single stage evaluated at its own carrier
+    stage_inherent_backlash_rad = (2 * TOOTH_BACKLASH_MM) / (SUN_PITCH_RADIUS_MM * GEAR_RATIO)
+    
+    total_backlash_rad = 0.0
+    for i in range(1, STAGES_COUNT + 1):
+        # i=1 is the first stage (motor side), i=STAGES_COUNT is the final output stage.
+        # Backlash from earlier stages is reduced by the ratio of the stages after it.
+        stages_after = STAGES_COUNT - i
+        reflected_backlash = stage_inherent_backlash_rad / math.pow(GEAR_RATIO, stages_after)
+        total_backlash_rad += reflected_backlash
+        
+    total_backlash_deg = math.degrees(total_backlash_rad)
+    linear_backlash_at_load = total_backlash_rad * LOAD_LEVER_ARM_MM
+    
+    return total_backlash_rad, total_backlash_deg, linear_backlash_at_load
+
+# Add these to your GLOBAL PARAMETERS
+ASSEMBLY_TOLERANCE_MM = 0.1  # Your CAD fit parameter
+PLA_ELASTIC_MODULUS_REDUCTION = 0.6 # Real-world PLA is often less stiff than spec
+
+def estimate_real_world_slop():
+    b_rad, _, _ = calculate_system_backlash()
+    
+    tolerance_slop_rad = (ASSEMBLY_TOLERANCE_MM / SUN_PITCH_RADIUS_MM) * math.tan(PRESSURE_ANGLE_RADIANS)
+    
+    total_slop = b_rad
+    for i in range(STAGES_COUNT):
+        reduction = math.pow(GEAR_RATIO, i)
+        total_slop += (tolerance_slop_rad / reduction)
+        
+    return math.degrees(total_slop) * COMPLIANCE_FACTOR_PLA
+    
 if __name__ == "__main__":
     print("-" * 50)
     print("1. SYSTEM CHECK")
@@ -555,4 +588,13 @@ if __name__ == "__main__":
     print("2. MAXIMUM SAFE LOAD CAPACITY")
     print("-" * 50)
     max_kg, max_torque = find_max_safe_load()
-    print(f"Max Safe Load: {max_kg:5.2f} kg ({max_torque:4.0f} N·mm)")
+    print(f"Max Safe Load: {max_kg:5.2f} kg ({max_torque:4.0f} N·mm)\n")
+
+    print("-" * 50)
+    print("3. OUTPUT BACKLASH")
+    print("-" * 50)
+    # b_rad, b_deg, b_linear = calculate_system_backlash()
+    # print(f"Angular Backlash: {b_deg:5.2f}° ({b_rad:.4f} rad)")
+    # print(f"Linear Backlash at Load Arm ({LOAD_LEVER_ARM_MM}mm): {b_linear:5.2f} mm")
+    estimate_real_world_slop = estimate_real_world_slop()
+    print(f"Estimated Real-World Output Slop (including compliance): {estimate_real_world_slop:5.2f}°")
