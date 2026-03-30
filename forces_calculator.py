@@ -8,7 +8,6 @@ from typing import Dict, List, Tuple
 LEWIS_CORRECTION_FACTOR = 1.2
 GEAR_EFFICIENCY = 0.8
 SAFETY_FACTOR = 3
-COMPLIANCE_FACTOR_PLA = 4.0  # Multiplier to estimate real-world slop from theoretical backlash
 LOAD_SHARING_FACTOR = 1
 
 # -------------------------
@@ -154,7 +153,7 @@ class Gear(Component):
 
     def get_fem_loads(self) -> Dict[str, float]:
         F_t = self.effective_force
-        F_r = F_t * math.tan(math.radians(PRESSURE_ANGLE_DEGREE))
+        F_r = F_t * math.tan(PRESSURE_ANGLE_RADIANS)
         return {"F_t (Tangential) N": F_t, "F_r (Radial) N": F_r}
 
     def passes_check(self) -> bool:
@@ -542,12 +541,7 @@ def find_max_safe_load() -> Tuple[float, float]:
     return max_load, final_torque
 
 def calculate_system_backlash() -> Tuple[float, float, float]:
-    """
-    Calculates the total angular and linear backlash at the final output shaft.
-    Returns: (backlash_radians, backlash_degrees, linear_backlash_at_load_mm)
-    """
-    # Angular backlash of a single stage evaluated at its own carrier
-    stage_inherent_backlash_rad = (2 * TOOTH_BACKLASH_MM) / (SUN_PITCH_RADIUS_MM * GEAR_RATIO)
+    stage_inherent_backlash_rad = (2 * TOOTH_BACKLASH_MM) / (SUN_PITCH_RADIUS_MM * math.cos(PRESSURE_ANGLE_RADIANS))
     
     total_backlash_rad = 0.0
     for i in range(1, STAGES_COUNT + 1):
@@ -576,7 +570,7 @@ def estimate_real_world_slop():
         reduction = math.pow(GEAR_RATIO, i)
         total_slop += (tolerance_slop_rad / reduction)
         
-    return math.degrees(total_slop) * COMPLIANCE_FACTOR_PLA
+    return math.degrees(total_slop)
     
 if __name__ == "__main__":
     print("-" * 50)
