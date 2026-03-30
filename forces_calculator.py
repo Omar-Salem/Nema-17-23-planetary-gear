@@ -539,14 +539,15 @@ def find_max_safe_load() -> Tuple[float, float]:
     return max_load, final_torque
 
 def calculate_system_backlash() -> Tuple[float, float, float]:
-    stage_inherent_backlash_rad = (2 * TOOTH_BACKLASH_MM) / (SUN_PITCH_RADIUS_MM * math.cos(PRESSURE_ANGLE_RADIANS))
+    stage_inherent_backlash_rad =  TOOTH_BACKLASH_MM / (SUN_PITCH_RADIUS_MM * math.cos(PRESSURE_ANGLE_RADIANS))
+    max_stage_inherent_backlash_rad = 2 * stage_inherent_backlash_rad  # Assume worst case where all backlash adds up
     
     total_backlash_rad = 0.0
     for i in range(1, STAGES_COUNT + 1):
         # i=1 is the first stage (motor side), i=STAGES_COUNT is the final output stage.
         # Backlash from earlier stages is reduced by the ratio of the stages after it.
         stages_after = STAGES_COUNT - i
-        reflected_backlash = stage_inherent_backlash_rad / math.pow(GEAR_RATIO, stages_after)
+        reflected_backlash = max_stage_inherent_backlash_rad / math.pow(GEAR_RATIO, stages_after)
         total_backlash_rad += reflected_backlash
         
     total_backlash_deg = math.degrees(total_backlash_rad)
