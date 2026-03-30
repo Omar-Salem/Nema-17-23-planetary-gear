@@ -15,7 +15,6 @@ LOAD_SHARING_FACTOR = 1
 # -------------------------
 GRAVITY_METER_SEC_SEC = 9.81
 
-PLA_ELASTIC_MODULUS_REDUCTION = 0.6
 PLA_STRENGTH_MEGA_PASCAL = 45  # N/mm²
 MAX_SIGMA_ALLOWED_PLA = PLA_STRENGTH_MEGA_PASCAL / SAFETY_FACTOR
 
@@ -31,7 +30,7 @@ MODULE_MM = 1
 PRESSURE_ANGLE_DEGREE = 20
 PRESSURE_ANGLE_RADIANS = math.radians(PRESSURE_ANGLE_DEGREE)
 STAGES_COUNT = 2
-TOOTH_BACKLASH_MM = 0.2  # per gear tooth
+TOOTH_BACKLASH_MM = 0.2 
 ASSEMBLY_TOLERANCE_MM = 0.1
 
 # -------------------------
@@ -554,12 +553,6 @@ def calculate_system_backlash() -> Tuple[float, float, float]:
     linear_backlash_at_load = total_backlash_rad * LOAD_LEVER_ARM_MM
     
     return total_backlash_rad, total_backlash_deg, linear_backlash_at_load
-
-# Add these to your GLOBAL PARAMETERS
-ASSEMBLY_TOLERANCE_MM = 0.1  # Your CAD fit parameter
-PLA_ELASTIC_MODULUS_REDUCTION = 0.6 # Real-world PLA is often less stiff than spec
-
-def estimate_real_world_slop():
     b_rad, _, _ = calculate_system_backlash()
     
     tolerance_slop_rad = (ASSEMBLY_TOLERANCE_MM / SUN_PITCH_RADIUS_MM) * math.tan(PRESSURE_ANGLE_RADIANS)
@@ -586,8 +579,6 @@ if __name__ == "__main__":
     print("-" * 50)
     print("3. OUTPUT BACKLASH")
     print("-" * 50)
-    # b_rad, b_deg, b_linear = calculate_system_backlash()
-    # print(f"Angular Backlash: {b_deg:5.2f}° ({b_rad:.4f} rad)")
-    # print(f"Linear Backlash at Load Arm ({LOAD_LEVER_ARM_MM}mm): {b_linear:5.2f} mm")
-    estimate_real_world_slop = estimate_real_world_slop()
-    print(f"Estimated Real-World Output Slop (including compliance): {estimate_real_world_slop:5.2f}°")
+    b_rad, b_deg, b_linear = calculate_system_backlash()
+    print(f"Angular Backlash: {b_deg:5.2f}° ({b_rad:.4f} rad)")
+    print(f"Linear Backlash at Load Arm ({LOAD_LEVER_ARM_MM}mm): {b_linear:5.2f} mm")
