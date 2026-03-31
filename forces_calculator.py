@@ -30,9 +30,9 @@ MODULE_MM = 1
 PRESSURE_ANGLE_DEGREE = 20
 PRESSURE_ANGLE_RADIANS = math.radians(PRESSURE_ANGLE_DEGREE)
 STAGES_COUNT = 2
-TOOTH_BACKLASH_MM = 0.2 
+TOOTH_BACKLASH_MM = 0.2
 ASSEMBLY_TOLERANCE_MM = 0.1
-HELIX_ANGLE_DEGREE = 0
+HELIX_ANGLE_DEGREE = 20
 HELIX_ANGLE_RAD = math.radians(HELIX_ANGLE_DEGREE)
 
 # -------------------------
@@ -85,7 +85,7 @@ LOAD_LEVER_ARM_MM = 100
 # -------------------------
 # MOTOR
 # -------------------------
-MOTOR_TORQUE_N_MM = 340 
+MOTOR_TORQUE_N_MM = 340
 
 
 class Component(ABC):
@@ -199,7 +199,8 @@ class Ring(Gear):
 
     def get_fem_loads(self) -> Dict[str, float]:
         F_a = self.effective_force * math.tan(HELIX_ANGLE_RAD)
-        return {"F_t (Tang) N": round(self.effective_force, 2), "F_r (Rad) N": round(self.radial_force, 2), "F_a (Axial) N": round(F_a, 2)}
+        return {"F_t (Tang) N": round(self.effective_force, 2), "F_r (Rad) N": round(self.radial_force, 2),
+                "F_a (Axial) N": round(F_a, 2)}
 
     def _calculate_bending_stress(self) -> float:
         virtual_teeth = self.teeth_count / math.pow(math.cos(HELIX_ANGLE_RAD), 3)
@@ -440,7 +441,7 @@ def build_stages(load_weight_kg: float, efficiency: float) -> List[Stage]:
 
     for i in range(1, STAGES_COUNT + 1):
         tangential_force = (current_input_torque / (SUN_PITCH_RADIUS_MM * PLANETS_COUNT)) * LOAD_SHARING_FACTOR
-        
+
         # Updated for Helix Angle
         radial_force = tangential_force * math.tan(PRESSURE_ANGLE_RADIANS) / math.cos(HELIX_ANGLE_RAD)
 
@@ -532,8 +533,8 @@ def find_max_safe_load() -> Tuple[float, float]:
         total_efficiency = math.pow(GEAR_EFFICIENCY, STAGES_COUNT)
 
         required_input_torque = (
-            load * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
-            / (total_ratio * total_efficiency)
+                load * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
+                / (total_ratio * total_efficiency)
         )
 
         if required_input_torque > MOTOR_TORQUE_N_MM:
@@ -546,34 +547,37 @@ def find_max_safe_load() -> Tuple[float, float]:
 
     return max_load, final_torque
 
+
 def calculate_system_backlash() -> Tuple[float, float, float]:
-    single_mesh_backlash_rad = TOOTH_BACKLASH_MM / (SUN_PITCH_RADIUS_MM * math.cos(PRESSURE_ANGLE_RADIANS)* math.cos(HELIX_ANGLE_RAD))
+    single_mesh_backlash_rad = TOOTH_BACKLASH_MM / (
+                SUN_PITCH_RADIUS_MM * math.cos(PRESSURE_ANGLE_RADIANS) * math.cos(HELIX_ANGLE_RAD))
     stage_backlash_rad = 2 * single_mesh_backlash_rad  # sun-planet and planet-ring meshes
-    
+
     total_backlash_rad = 0.0
     for i in range(1, STAGES_COUNT + 1):
         stages_after = STAGES_COUNT - i
         reflected_backlash = stage_backlash_rad / math.pow(GEAR_RATIO, stages_after)
         total_backlash_rad += reflected_backlash
-        
+
     total_backlash_deg = math.degrees(total_backlash_rad)
     linear_backlash_at_load = total_backlash_rad * LOAD_LEVER_ARM_MM
-    
+
     return total_backlash_rad, total_backlash_deg, linear_backlash_at_load
 
 
 def calculate_system_slop() -> float:
     b_rad, _, _ = calculate_system_backlash()
-    tolerance_slop_rad = (ASSEMBLY_TOLERANCE_MM / SUN_PITCH_RADIUS_MM) * math.tan(PRESSURE_ANGLE_RADIANS) / math.cos(HELIX_ANGLE_RAD)
-    
+    tolerance_slop_rad = (ASSEMBLY_TOLERANCE_MM / SUN_PITCH_RADIUS_MM) * math.tan(PRESSURE_ANGLE_RADIANS) / math.cos(
+        HELIX_ANGLE_RAD)
+
     total_slop = b_rad
     for i in range(STAGES_COUNT):
         reduction = math.pow(GEAR_RATIO, i)
         total_slop += (tolerance_slop_rad / reduction)
-        
+
     return math.degrees(total_slop)
 
-    
+
 if __name__ == "__main__":
     print("-" * 50)
     print("1. SYSTEM CHECK")
