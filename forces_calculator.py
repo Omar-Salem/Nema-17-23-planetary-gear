@@ -30,9 +30,9 @@ MODULE_MM = 1
 PRESSURE_ANGLE_DEGREE = 20
 PRESSURE_ANGLE_RADIANS = math.radians(PRESSURE_ANGLE_DEGREE)
 STAGES_COUNT = 2
-TOOTH_BACKLASH_MM = 0.2
+TOOTH_BACKLASH_MM = 0.2 
 ASSEMBLY_TOLERANCE_MM = 0.1
-HELIX_ANGLE_DEGREE = 20
+HELIX_ANGLE_DEGREE = 0
 HELIX_ANGLE_RAD = math.radians(HELIX_ANGLE_DEGREE)
 
 # -------------------------
@@ -40,7 +40,7 @@ HELIX_ANGLE_RAD = math.radians(HELIX_ANGLE_DEGREE)
 # -------------------------
 SUN_TEETH_COUNT = 12
 SUN_FACE_WIDTH_MM = 13
-SUN_PITCH_RADIUS_MM = (MODULE_MM * SUN_TEETH_COUNT) / 2
+SUN_PITCH_RADIUS_MM = (MODULE_MM * SUN_TEETH_COUNT) / (2 * math.cos(HELIX_ANGLE_RAD))
 
 # -------------------------
 # PLANET
@@ -85,7 +85,7 @@ LOAD_LEVER_ARM_MM = 100
 # -------------------------
 # MOTOR
 # -------------------------
-MOTOR_TORQUE_N_MM = 340
+MOTOR_TORQUE_N_MM = 340 
 
 
 class Component(ABC):
@@ -147,23 +147,25 @@ class Gear(Component):
         super().__init__(name, threshold)
         self.teeth_count = teeth_count
         self.face_width_mm = face_width_mm
-        self.pitch_radius_mm = (MODULE_MM * self.teeth_count) / 2
+        self.pitch_radius_mm = (MODULE_MM * self.teeth_count) / (2 * math.cos(HELIX_ANGLE_RAD))
         self.effective_force = effective_force
         self.name = name
 
     def get_fem_loads(self) -> Dict[str, float]:
         F_t = self.effective_force
-        F_r = F_t * math.tan(PRESSURE_ANGLE_RADIANS)
-        return {"F_t (Tangential) N": F_t, "F_r (Radial) N": F_r}
+        F_r = F_t * math.tan(PRESSURE_ANGLE_RADIANS) / math.cos(HELIX_ANGLE_RAD)
+        F_a = F_t * math.tan(HELIX_ANGLE_RAD)
+        return {"F_t (Tang) N": round(F_t, 2), "F_r (Rad) N": round(F_r, 2), "F_a (Axial) N": round(F_a, 2)}
 
     def passes_check(self) -> bool:
         return self._calculate_bending_stress() < self.threshold
 
     def _calculate_bending_stress(self) -> float:
-        lewis_y = self._get_lewis_form_factor(self.teeth_count)
+        virtual_teeth = self.teeth_count / math.pow(math.cos(HELIX_ANGLE_RAD), 3)
+        lewis_y = self._get_lewis_form_factor(virtual_teeth)
         return self.effective_force / (self.face_width_mm * MODULE_MM * lewis_y * LEWIS_CORRECTION_FACTOR)
 
-    def _get_lewis_form_factor(self, teeth: int) -> float:
+    def _get_lewis_form_factor(self, teeth: float) -> float:
         if teeth in self.EXTERNAL_LEWIS_20_TABLE:
             return self.EXTERNAL_LEWIS_20_TABLE[teeth]
         keys = sorted(self.EXTERNAL_LEWIS_20_TABLE.keys())
@@ -196,10 +198,12 @@ class Ring(Gear):
         return self._calculate_bending_stress() < self.threshold and self._calculate_ovalization() < self.threshold
 
     def get_fem_loads(self) -> Dict[str, float]:
-        return {"F_t (Tangential) N": self.effective_force, "F_r (Radial) N": self.radial_force}
+        F_a = self.effective_force * math.tan(HELIX_ANGLE_RAD)
+        return {"F_t (Tang) N": round(self.effective_force, 2), "F_r (Rad) N": round(self.radial_force, 2), "F_a (Axial) N": round(F_a, 2)}
 
     def _calculate_bending_stress(self) -> float:
-        y_ext = self._get_lewis_form_factor(self.teeth_count)
+        virtual_teeth = self.teeth_count / math.pow(math.cos(HELIX_ANGLE_RAD), 3)
+        y_ext = self._get_lewis_form_factor(virtual_teeth)
         y_internal = 1.3 * y_ext
         return self.effective_force / (self.face_width_mm * MODULE_MM * y_internal * LEWIS_CORRECTION_FACTOR)
 
@@ -245,12 +249,12 @@ class PinBase(Component):
         return self._von_mises() <= self.threshold
 
     def get_fem_loads(self) -> Dict[str, float]:
-        denom = math.sqrt(1 + math.pow(math.tan(PRESSURE_ANGLE_RADIANS), 2))
+        denom = math.sqrt(1 + math.pow(math.tan(PRESSURE_ANGLE_RADIANS) / math.cos(HELIX_ANGLE_RAD), 2))
         f_tangential_applied = self.F / denom
-        f_radial_applied = f_tangential_applied * math.tan(PRESSURE_ANGLE_RADIANS)
+        f_radial_applied = f_tangential_applied * math.tan(PRESSURE_ANGLE_RADIANS) / math.cos(HELIX_ANGLE_RAD)
         return {
-            "F_t (Tangential) N": round(f_tangential_applied, 2),
-            "F_r (Radial) N": round(f_radial_applied, 2),
+            "F_t (Tang) N": round(f_tangential_applied, 2),
+            "F_r (Rad) N": round(f_radial_applied, 2),
             "Deflection mm": round(self._deflection(), 4)
         }
 
@@ -400,11 +404,11 @@ class CarrierHub(Component):
         bolt_tension = self._bolt_tension_from_bending()
 
         return {
-            "Shaft Tangential Force (N)": shaft_tangential_force,
-            "Bolt Shear Force Each (N)": bolt_shear,
-            "Bolt Tension Force Each (N)": bolt_tension,
-            "Total Tangential Bolt Load (N)": bolt_shear * self.bolt_count,
-            "Total Axial Bolt Load (N)": bolt_tension * self.bolt_count
+            "Shaft Tang Force (N)": round(shaft_tangential_force, 2),
+            "Bolt Shear Each (N)": round(bolt_shear, 2),
+            "Bolt Tension Each (N)": round(bolt_tension, 2),
+            "Total Tang Bolt Load (N)": round(bolt_shear * self.bolt_count, 2),
+            "Total Axial Bolt Load (N)": round(bolt_tension * self.bolt_count, 2)
         }
 
 
@@ -436,7 +440,9 @@ def build_stages(load_weight_kg: float, efficiency: float) -> List[Stage]:
 
     for i in range(1, STAGES_COUNT + 1):
         tangential_force = (current_input_torque / (SUN_PITCH_RADIUS_MM * PLANETS_COUNT)) * LOAD_SHARING_FACTOR
-        radial_force = tangential_force * math.tan(PRESSURE_ANGLE_RADIANS)
+        
+        # Updated for Helix Angle
+        radial_force = tangential_force * math.tan(PRESSURE_ANGLE_RADIANS) / math.cos(HELIX_ANGLE_RAD)
 
         sun = Gear(SUN_TEETH_COUNT, SUN_FACE_WIDTH_MM, tangential_force, "Sun", MAX_SIGMA_ALLOWED_PLA)
         planet = Gear(PLANET_TEETH_COUNT, PLANET_FACE_WIDTH_MM, tangential_force, "Planet", MAX_SIGMA_ALLOWED_PLA)
@@ -526,8 +532,8 @@ def find_max_safe_load() -> Tuple[float, float]:
         total_efficiency = math.pow(GEAR_EFFICIENCY, STAGES_COUNT)
 
         required_input_torque = (
-                load * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
-                / (total_ratio * total_efficiency)
+            load * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
+            / (total_ratio * total_efficiency)
         )
 
         if required_input_torque > MOTOR_TORQUE_N_MM:
@@ -540,36 +546,34 @@ def find_max_safe_load() -> Tuple[float, float]:
 
     return max_load, final_torque
 
-
 def calculate_system_backlash() -> Tuple[float, float, float]:
-    single_mesh_backlash_rad = TOOTH_BACKLASH_MM / (
-                SUN_PITCH_RADIUS_MM * math.cos(PRESSURE_ANGLE_RADIANS) * math.cos(HELIX_ANGLE_RAD))
+    single_mesh_backlash_rad = TOOTH_BACKLASH_MM / (SUN_PITCH_RADIUS_MM * math.cos(PRESSURE_ANGLE_RADIANS)* math.cos(HELIX_ANGLE_RAD))
     stage_backlash_rad = 2 * single_mesh_backlash_rad  # sun-planet and planet-ring meshes
-
+    
     total_backlash_rad = 0.0
     for i in range(1, STAGES_COUNT + 1):
-        # i=1 is the first stage (motor side), i=STAGES_COUNT is the final output stage.
-        # Backlash from earlier stages is reduced by the ratio of the stages after it.
         stages_after = STAGES_COUNT - i
         reflected_backlash = stage_backlash_rad / math.pow(GEAR_RATIO, stages_after)
         total_backlash_rad += reflected_backlash
-
+        
     total_backlash_deg = math.degrees(total_backlash_rad)
     linear_backlash_at_load = total_backlash_rad * LOAD_LEVER_ARM_MM
-
+    
     return total_backlash_rad, total_backlash_deg, linear_backlash_at_load
+
+
+def calculate_system_slop() -> float:
     b_rad, _, _ = calculate_system_backlash()
-
-    tolerance_slop_rad = (ASSEMBLY_TOLERANCE_MM / SUN_PITCH_RADIUS_MM) * math.tan(PRESSURE_ANGLE_RADIANS)
-
+    tolerance_slop_rad = (ASSEMBLY_TOLERANCE_MM / SUN_PITCH_RADIUS_MM) * math.tan(PRESSURE_ANGLE_RADIANS) / math.cos(HELIX_ANGLE_RAD)
+    
     total_slop = b_rad
     for i in range(STAGES_COUNT):
         reduction = math.pow(GEAR_RATIO, i)
         total_slop += (tolerance_slop_rad / reduction)
-
+        
     return math.degrees(total_slop)
 
-
+    
 if __name__ == "__main__":
     print("-" * 50)
     print("1. SYSTEM CHECK")
@@ -583,8 +587,10 @@ if __name__ == "__main__":
     print(f"Max Safe Load: {max_kg:5.2f} kg ({max_torque:4.0f} N·mm)\n")
 
     print("-" * 50)
-    print("3. OUTPUT BACKLASH")
+    print("3. OUTPUT BACKLASH & SLOP")
     print("-" * 50)
     b_rad, b_deg, b_linear = calculate_system_backlash()
+    system_slop_deg = calculate_system_slop()
     print(f"Angular Backlash: {b_deg:5.2f}° ({b_rad:.4f} rad)")
     print(f"Linear Backlash at Load Arm ({LOAD_LEVER_ARM_MM}mm): {b_linear:5.2f} mm")
+    print(f"Total System Slop (Incl. Tolerances): {system_slop_deg:5.2f}°")
