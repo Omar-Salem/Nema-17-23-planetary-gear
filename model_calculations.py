@@ -32,7 +32,7 @@ PRESSURE_ANGLE_RADIANS = math.radians(PRESSURE_ANGLE_DEGREE)
 STAGES_COUNT = 2
 TOOTH_BACKLASH_MM = 0.2
 ASSEMBLY_TOLERANCE_MM = 0.1
-HELIX_ANGLE_DEGREE = 20
+HELIX_ANGLE_DEGREE = 0
 HELIX_ANGLE_RAD = math.radians(HELIX_ANGLE_DEGREE)
 
 # -------------------------
@@ -442,7 +442,6 @@ def build_stages(load_weight_kg: float, efficiency: float) -> List[Stage]:
     for i in range(1, STAGES_COUNT + 1):
         tangential_force = (current_input_torque / (SUN_PITCH_RADIUS_MM * PLANETS_COUNT)) * LOAD_SHARING_FACTOR
 
-        # Updated for Helix Angle
         radial_force = tangential_force * math.tan(PRESSURE_ANGLE_RADIANS) / math.cos(HELIX_ANGLE_RAD)
 
         sun = Gear(SUN_TEETH_COUNT, SUN_FACE_WIDTH_MM, tangential_force, "Sun", MAX_SIGMA_ALLOWED_PLA)
@@ -549,8 +548,16 @@ def find_max_safe_load() -> Tuple[float, float]:
 
 
 def calculate_system_backlash() -> Tuple[float, float, float]:
-    single_mesh_backlash_rad = TOOTH_BACKLASH_MM / (
-                SUN_PITCH_RADIUS_MM * math.cos(PRESSURE_ANGLE_RADIANS) * math.cos(HELIX_ANGLE_RAD))
+    overlap_ratio = (SUN_FACE_WIDTH_MM * math.tan(HELIX_ANGLE_RAD)) / (math.pi * MODULE_MM)
+
+    effective_backlash_factor = 1 + overlap_ratio
+
+    single_mesh_backlash_rad = (
+        TOOTH_BACKLASH_MM
+        / (SUN_PITCH_RADIUS_MM * math.cos(PRESSURE_ANGLE_RADIANS))
+    ) / effective_backlash_factor
+    # single_mesh_backlash_rad = TOOTH_BACKLASH_MM / (
+    #             SUN_PITCH_RADIUS_MM * math.cos(PRESSURE_ANGLE_RADIANS) * math.cos(HELIX_ANGLE_RAD))
     stage_backlash_rad = 2 * single_mesh_backlash_rad  # sun-planet and planet-ring meshes
 
     total_backlash_rad = 0.0
