@@ -68,7 +68,7 @@ Fill the fields with the sun gear params
 
 (_Advanced config will be the same for planet and ring_)
 
-![](assets/all%20gears%20.png)
+![](assets/advanced%20config.png)
 
 In the same manner create the planet gear
 
