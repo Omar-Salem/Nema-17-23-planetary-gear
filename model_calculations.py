@@ -556,8 +556,8 @@ def calculate_system_backlash() -> Tuple[float, float, float]:
         TOOTH_BACKLASH_MM
         / (SUN_PITCH_RADIUS_MM * math.cos(PRESSURE_ANGLE_RADIANS))
     ) / effective_backlash_factor
-    # single_mesh_backlash_rad = TOOTH_BACKLASH_MM / (
-    #             SUN_PITCH_RADIUS_MM * math.cos(PRESSURE_ANGLE_RADIANS) * math.cos(HELIX_ANGLE_RAD))
+    
+    # single_mesh_backlash_rad = (2 * TOOTH_BACKLASH_MM) / (MODULE_MM * SUN_TEETH_COUNT * math.cos(PRESSURE_ANGLE_RADIANS))
     stage_backlash_rad = 2 * single_mesh_backlash_rad  # sun-planet and planet-ring meshes
 
     total_backlash_rad = 0.0
