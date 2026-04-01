@@ -133,7 +133,9 @@ Export component to project as `MotorInput`
 
 Close current design without saving
 
-_If you create another gearbox with a different gear ratio, `Sun` and `MotorInput` will stay the same, no need to regnerate them_
+_If you create another gearbox with a different gear ratio, `Sun` and `MotorInput` will stay the same, no need to regenerate them_
+
+Move `SunTemp` to trash
 
 ---
 In the same manner, open `PlanetModifier` and insert `PlanetTemp`
@@ -158,7 +160,9 @@ Should end up with this
 
 ![](assets/Planet%20analysis.png)
 
-Export to project as `Planet`, close current design without saving, move `PlanetTemp` to trash
+Export to project as `Planet`
+Close current design without saving
+Move `PlanetTemp` to trash
 
 We now have all the components, time to combine them
 
@@ -180,7 +184,10 @@ Should end up with this
 
 ![](assets/ring_joined.png)
 
-Combine all of them as new component, export it to project as `Ring`, close current design without saving, move `RingTemp` to trash
+Combine all of them as new component
+Export to project as `Ring`
+Close current design without saving
+Move `RingTemp` to trash
 
 ---
 
