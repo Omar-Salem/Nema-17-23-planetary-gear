@@ -567,13 +567,12 @@ def calculate_system_backlash() -> Tuple[float, float, float]:
         total_backlash_rad += reflected_backlash
 
     total_backlash_deg = math.degrees(total_backlash_rad)
-    linear_backlash_at_load = total_backlash_rad * LOAD_LEVER_ARM_MM
 
-    return total_backlash_rad, total_backlash_deg, linear_backlash_at_load
+    return total_backlash_rad, total_backlash_deg
 
 
 def calculate_system_slop() -> float:
-    b_rad, _, _ = calculate_system_backlash()
+    b_rad, _= calculate_system_backlash()
     tolerance_slop_rad = (ASSEMBLY_TOLERANCE_MM / SUN_PITCH_RADIUS_MM) * math.tan(PRESSURE_ANGLE_RADIANS) / math.cos(
         HELIX_ANGLE_RAD)
 
@@ -581,8 +580,11 @@ def calculate_system_slop() -> float:
     for i in range(STAGES_COUNT):
         reduction = math.pow(GEAR_RATIO, i)
         total_slop += (tolerance_slop_rad / reduction)
+        
+    
+    linear_backlash_at_load = total_slop * LOAD_LEVER_ARM_MM
 
-    return math.degrees(total_slop)
+    return math.degrees(total_slop),linear_backlash_at_load
 
 
 if __name__ == "__main__":
@@ -600,8 +602,8 @@ if __name__ == "__main__":
     print("-" * 50)
     print("3. OUTPUT BACKLASH & SLOP")
     print("-" * 50)
-    b_rad, b_deg, b_linear = calculate_system_backlash()
-    system_slop_deg = calculate_system_slop()
+    b_rad, b_deg= calculate_system_backlash()
+    system_slop_deg, b_linear  = calculate_system_slop()
     print(f"Angular Backlash: {b_deg:5.2f}° ({b_rad:.4f} rad)")
-    print(f"Linear Backlash at Load Arm ({LOAD_LEVER_ARM_MM}mm): {b_linear:5.2f} mm")
     print(f"Total System Slop (Incl. Tolerances): {system_slop_deg:5.2f}°")
+    print(f"Linear Backlash at Load Arm ({LOAD_LEVER_ARM_MM}mm): {b_linear:5.2f} mm")
