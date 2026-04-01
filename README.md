@@ -161,7 +161,9 @@ Should end up with this
 ![](assets/Planet%20analysis.png)
 
 Export to project as `Planet`
+
 Close current design without saving
+
 Move `PlanetTemp` to trash
 
 We now have all the components, time to combine them
@@ -185,8 +187,11 @@ Should end up with this
 ![](assets/ring_joined.png)
 
 Combine all of them as new component
+
 Export to project as `Ring`
+
 Close current design without saving
+
 Move `RingTemp` to trash
 
 ---
@@ -209,11 +214,11 @@ Should end up with this
 
 ![](assets/first%20stage%20joined.png)
 
-Combine all of the as new component, export it to project as `FirstStage`
+Combine all of them as new component
+
+Export it to project as `FirstStage`
 
 Close current design without saving
-
-Move `Sun` to trash
 
 ---
 
