@@ -163,7 +163,10 @@ class Gear(Component):
     def _calculate_bending_stress(self) -> float:
         virtual_teeth = self.teeth_count / math.pow(math.cos(HELIX_ANGLE_RAD), 3)
         lewis_y = self._get_lewis_form_factor(virtual_teeth)
-        return self.effective_force / (self.face_width_mm * MODULE_MM * lewis_y * LEWIS_CORRECTION_FACTOR)
+        
+        normal_tangential_force = self.effective_force / math.cos(HELIX_ANGLE_RAD)
+        
+        return normal_tangential_force / (self.face_width_mm * MODULE_MM * lewis_y * LEWIS_CORRECTION_FACTOR)
 
     def _get_lewis_form_factor(self, teeth: float) -> float:
         if teeth in self.EXTERNAL_LEWIS_20_TABLE:
@@ -179,13 +182,25 @@ class Gear(Component):
         return self.EXTERNAL_LEWIS_20_TABLE[keys[-1] if teeth > keys[-1] else keys[0]]
 
     def _calculate_shear_stress(self) -> float:
-        return self.effective_force / (self.face_width_mm * MODULE_MM)
+        normal_tangential_force = self.effective_force / math.cos(HELIX_ANGLE_RAD)
+        
+        return normal_tangential_force / (self.face_width_mm * MODULE_MM)
+
+    def _calculate_axial_bending_stress(self) -> float:
+            f_a = self.effective_force * math.tan(HELIX_ANGLE_RAD)
+            
+            moment_arm = MODULE_MM * 1.25 
+            
+            tooth_root_thickness = 2.0 * MODULE_MM
+            section_modulus = (self.face_width_mm * (tooth_root_thickness**2)) / 6 
+            
+            return (f_a * moment_arm) / section_modulus
 
     def get_component_von_mises(self) -> float:
         sigma_b = self._calculate_bending_stress()
+        sigma_a = self._calculate_axial_bending_stress() 
         tau = self._calculate_shear_stress()
-        return math.sqrt(math.pow(sigma_b, 2) + 3 * math.pow(tau, 2))
-
+        return math.sqrt(math.pow(sigma_b + sigma_a, 2) + 3 * math.pow(tau, 2))
 
 class Ring(Gear):
     def __init__(self, teeth_count: int, face_width_mm: float, tangential_force: float, radial_force: float,
