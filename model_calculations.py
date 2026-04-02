@@ -594,16 +594,16 @@ if __name__ == "__main__":
     display_stage_results(LOAD_WEIGHT_KG, GEAR_EFFICIENCY)
 
     print("-" * 50)
-    print("2. MAXIMUM SAFE LOAD CAPACITY")
-    print("-" * 50)
-    max_kg, max_torque = find_max_safe_load()
-    print(f"Max Safe Load: {max_kg:5.2f} kg ({max_torque:4.0f} N·mm)\n")
-
-    print("-" * 50)
-    print("3. OUTPUT BACKLASH & SLOP")
+    print("2. OUTPUT BACKLASH & SLOP")
     print("-" * 50)
     b_rad, b_deg= calculate_system_backlash()
     system_slop_deg, b_linear  = calculate_system_slop()
     print(f"Angular Backlash: {b_deg:5.2f}° ({b_rad:.4f} rad)")
     print(f"Total System Slop (Incl. Tolerances): {system_slop_deg:5.2f}°")
     print(f"Linear Backlash at Load Arm ({LOAD_LEVER_ARM_MM}mm): {b_linear:5.2f} mm")
+
+    print("-" * 50)
+    print("3. MAXIMUM SAFE LOAD CAPACITY")
+    print("-" * 50)
+    max_kg, max_torque = find_max_safe_load()
+    print(f"Max Safe Load: {max_kg:5.2f} kg ({max_torque:4.0f} N·mm)\n")
