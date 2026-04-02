@@ -162,6 +162,7 @@ class Gear(Component):
 
     def _calculate_bending_stress(self) -> float:
         virtual_teeth = self.teeth_count / math.pow(math.cos(HELIX_ANGLE_RAD), 3)
+        
         lewis_y = self._get_lewis_form_factor(virtual_teeth)
         
         normal_tangential_force = self.effective_force / math.cos(HELIX_ANGLE_RAD)
@@ -169,17 +170,27 @@ class Gear(Component):
         return normal_tangential_force / (self.face_width_mm * MODULE_MM * lewis_y * LEWIS_CORRECTION_FACTOR)
 
     def _get_lewis_form_factor(self, teeth: float) -> float:
-        if teeth in self.EXTERNAL_LEWIS_20_TABLE:
-            return self.EXTERNAL_LEWIS_20_TABLE[teeth]
+        # Tolerance for floating point "integer" check
+        tol = 1e-6
+        # If teeth is very close to an integer key, use exact match
+        for key in self.EXTERNAL_LEWIS_20_TABLE:
+            if abs(teeth - key) < tol:
+                return self.EXTERNAL_LEWIS_20_TABLE[key]
+        
+        # Otherwise, interpolate between nearest keys
         keys = sorted(self.EXTERNAL_LEWIS_20_TABLE.keys())
+        if teeth < keys[0]:
+            return self.EXTERNAL_LEWIS_20_TABLE[keys[0]]
+        if teeth > keys[-1]:
+            return self.EXTERNAL_LEWIS_20_TABLE[keys[-1]]
+        
         for i in range(len(keys) - 1):
             low, high = keys[i], keys[i + 1]
-            if low < teeth < high:
+            if low <= teeth <= high:
                 y_low = self.EXTERNAL_LEWIS_20_TABLE[low]
                 y_high = self.EXTERNAL_LEWIS_20_TABLE[high]
                 frac = (teeth - low) / (high - low)
                 return y_low + (y_high - y_low) * frac
-        return self.EXTERNAL_LEWIS_20_TABLE[keys[-1] if teeth > keys[-1] else keys[0]]
 
     def _calculate_shear_stress(self) -> float:
         normal_tangential_force = self.effective_force / math.cos(HELIX_ANGLE_RAD)
