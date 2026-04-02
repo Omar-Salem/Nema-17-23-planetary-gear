@@ -626,7 +626,7 @@ if __name__ == "__main__":
     system_slop_deg, b_linear  = calculate_system_slop()
     print(f"Angular Backlash: {b_deg:5.2f}° ({b_rad:.4f} rad)")
     print(f"Total System Slop (Incl. Tolerances): {system_slop_deg:5.2f}°")
-    print(f"Linear Backlash at Load Arm ({LOAD_LEVER_ARM_MM}mm): {b_linear:5.2f} mm")
+    print(f"Linear Backlash at Load Arm ({LOAD_LEVER_ARM_MM}mm): {b_linear:5.2f} mm\n")
 
     print("-" * 50)
     print("3. MAXIMUM SAFE LOAD CAPACITY")
