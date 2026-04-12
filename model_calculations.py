@@ -62,6 +62,7 @@ M3_BOLT_DIAMETER_MM = 3.0
 RING_TEETH_COUNT = int((GEAR_RATIO - 1) * SUN_TEETH_COUNT)
 RING_FACE_WIDTH_MM = 48
 RING_WALL_THICKNESS_MM = 8
+RING_DIAMETER_MM = (RING_TEETH_COUNT * MODULE_MM * (1 / math.cos(HELIX_ANGLE_RAD))) + RING_WALL_THICKNESS_MM
 
 # -------------------------
 # CARRIER
@@ -162,11 +163,11 @@ class Gear(Component):
 
     def _calculate_bending_stress(self) -> float:
         virtual_teeth = self.teeth_count / math.pow(math.cos(HELIX_ANGLE_RAD), 3)
-        
+
         lewis_y = self._get_lewis_form_factor(virtual_teeth)
-        
+
         normal_tangential_force = self.effective_force / math.cos(HELIX_ANGLE_RAD)
-        
+
         return normal_tangential_force / (self.face_width_mm * MODULE_MM * lewis_y * LEWIS_CORRECTION_FACTOR)
 
     def _get_lewis_form_factor(self, teeth: float) -> float:
@@ -176,14 +177,14 @@ class Gear(Component):
         for key in self.EXTERNAL_LEWIS_20_TABLE:
             if abs(teeth - key) < tol:
                 return self.EXTERNAL_LEWIS_20_TABLE[key]
-        
+
         # Otherwise, interpolate between nearest keys
         keys = sorted(self.EXTERNAL_LEWIS_20_TABLE.keys())
         if teeth < keys[0]:
             return self.EXTERNAL_LEWIS_20_TABLE[keys[0]]
         if teeth > keys[-1]:
             return self.EXTERNAL_LEWIS_20_TABLE[keys[-1]]
-        
+
         for i in range(len(keys) - 1):
             low, high = keys[i], keys[i + 1]
             if low <= teeth <= high:
@@ -194,24 +195,25 @@ class Gear(Component):
 
     def _calculate_shear_stress(self) -> float:
         normal_tangential_force = self.effective_force / math.cos(HELIX_ANGLE_RAD)
-        
+
         return normal_tangential_force / (self.face_width_mm * MODULE_MM)
 
     def _calculate_axial_bending_stress(self) -> float:
-            f_a = self.effective_force * math.tan(HELIX_ANGLE_RAD)
-            
-            moment_arm = MODULE_MM * 1.25 
-            
-            tooth_root_thickness = 2.0 * MODULE_MM
-            section_modulus = (self.face_width_mm * (tooth_root_thickness**2)) / 6 
-            
-            return (f_a * moment_arm) / section_modulus
+        f_a = self.effective_force * math.tan(HELIX_ANGLE_RAD)
+
+        moment_arm = MODULE_MM * 1.25
+
+        tooth_root_thickness = 2.0 * MODULE_MM
+        section_modulus = (self.face_width_mm * (tooth_root_thickness ** 2)) / 6
+
+        return (f_a * moment_arm) / section_modulus
 
     def get_component_von_mises(self) -> float:
         sigma_b = self._calculate_bending_stress()
-        sigma_a = self._calculate_axial_bending_stress() 
+        sigma_a = self._calculate_axial_bending_stress()
         tau = self._calculate_shear_stress()
         return math.sqrt(math.pow(sigma_b + sigma_a, 2) + 3 * math.pow(tau, 2))
+
 
 class Ring(Gear):
     def __init__(self, teeth_count: int, face_width_mm: float, tangential_force: float, radial_force: float,
@@ -579,10 +581,10 @@ def calculate_system_backlash() -> Tuple[float, float, float]:
     effective_backlash_factor = 1 + overlap_ratio
 
     single_mesh_backlash_rad = (
-        GEAR_BACKLASH_MM
-        / (SUN_PITCH_RADIUS_MM * math.cos(PRESSURE_ANGLE_RADIANS))
-    ) / effective_backlash_factor
-    
+                                       GEAR_BACKLASH_MM
+                                       / (SUN_PITCH_RADIUS_MM * math.cos(PRESSURE_ANGLE_RADIANS))
+                               ) / effective_backlash_factor
+
     # single_mesh_backlash_rad = (2 * TOOTH_BACKLASH_MM) / (MODULE_MM * SUN_TEETH_COUNT * math.cos(PRESSURE_ANGLE_RADIANS))
     stage_backlash_rad = 2 * single_mesh_backlash_rad  # sun-planet and planet-ring meshes
 
@@ -598,7 +600,7 @@ def calculate_system_backlash() -> Tuple[float, float, float]:
 
 
 def calculate_system_slop() -> float:
-    b_rad, _= calculate_system_backlash()
+    b_rad, _ = calculate_system_backlash()
     tolerance_slop_rad = (ASSEMBLY_CLEARANCE_MM / SUN_PITCH_RADIUS_MM) * math.tan(PRESSURE_ANGLE_RADIANS) / math.cos(
         HELIX_ANGLE_RAD)
 
@@ -606,11 +608,10 @@ def calculate_system_slop() -> float:
     for i in range(STAGES_COUNT):
         reduction = math.pow(GEAR_RATIO, i)
         total_slop += (tolerance_slop_rad / reduction)
-        
-    
+
     linear_backlash_at_load = total_slop * LOAD_LEVER_ARM_MM
 
-    return math.degrees(total_slop),linear_backlash_at_load
+    return math.degrees(total_slop), linear_backlash_at_load
 
 
 if __name__ == "__main__":
@@ -622,11 +623,12 @@ if __name__ == "__main__":
     print("-" * 50)
     print("2. OUTPUT BACKLASH & SLOP")
     print("-" * 50)
-    b_rad, b_deg= calculate_system_backlash()
-    system_slop_deg, b_linear  = calculate_system_slop()
-    print(f"Angular Backlash: {b_deg:5.2f}° ({b_rad:.4f} rad)")
+    _, b_deg = calculate_system_backlash()
+    system_slop_deg, b_linear = calculate_system_slop()
+    print(f"Angular Backlash: {b_deg:5.2f}°")
     print(f"Total System Slop (Incl. Tolerances): {system_slop_deg:5.2f}°")
     print(f"Linear Backlash at Load Arm ({LOAD_LEVER_ARM_MM}mm): {b_linear:5.2f} mm\n")
+    # print(RING_DIAMETER_MM)
 
     print("-" * 50)
     print("3. MAXIMUM SAFE LOAD CAPACITY")
