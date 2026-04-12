@@ -30,8 +30,8 @@ MODULE_MM = 1
 PRESSURE_ANGLE_DEGREE = 20
 PRESSURE_ANGLE_RADIANS = math.radians(PRESSURE_ANGLE_DEGREE)
 STAGES_COUNT = 2
-TOOTH_BACKLASH_MM = 0.1
-ASSEMBLY_TOLERANCE_MM = 0.1
+GEAR_BACKLASH_MM = 0.1
+ASSEMBLY_CLEARANCE_MM = 0.1
 HELIX_ANGLE_DEGREE = 20
 HELIX_ANGLE_RAD = math.radians(HELIX_ANGLE_DEGREE)
 
@@ -579,7 +579,7 @@ def calculate_system_backlash() -> Tuple[float, float, float]:
     effective_backlash_factor = 1 + overlap_ratio
 
     single_mesh_backlash_rad = (
-        TOOTH_BACKLASH_MM
+        GEAR_BACKLASH_MM
         / (SUN_PITCH_RADIUS_MM * math.cos(PRESSURE_ANGLE_RADIANS))
     ) / effective_backlash_factor
     
@@ -599,7 +599,7 @@ def calculate_system_backlash() -> Tuple[float, float, float]:
 
 def calculate_system_slop() -> float:
     b_rad, _= calculate_system_backlash()
-    tolerance_slop_rad = (ASSEMBLY_TOLERANCE_MM / SUN_PITCH_RADIUS_MM) * math.tan(PRESSURE_ANGLE_RADIANS) / math.cos(
+    tolerance_slop_rad = (ASSEMBLY_CLEARANCE_MM / SUN_PITCH_RADIUS_MM) * math.tan(PRESSURE_ANGLE_RADIANS) / math.cos(
         HELIX_ANGLE_RAD)
 
     total_slop = b_rad
