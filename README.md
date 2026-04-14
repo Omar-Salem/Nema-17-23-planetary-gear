@@ -259,9 +259,9 @@ Print 6 `Planet`s ($n_{stages} \times n_{planetsPerStage}$)
 
 Print 2 `SunTop`s (_1 per stage_)
 
-Print takes ~4.5 hours and ~92 gm of filament on bambu lab a1 mini (default settings)
 
-![](assets/build%20plate.png)
+![](assets/plate_1.png)
+![](assets/plate_2.png)
 
 ### Assembly
 1. Press the heat sinks into the ring.
