@@ -48,11 +48,11 @@ void loop() {
     return;
   }
   if (as5600.isAGCminGainOverflow()) {
-    Serial.print(" | MH: magnet too strong");
+    Serial.println(" | MH: magnet too strong");
     return;
   }
   if (as5600.isAGCmaxGainOverflow()) {
-    Serial.print(" | ML: magnet too weak");
+    Serial.println(" | ML: magnet too weak");
     return;
   }
 
