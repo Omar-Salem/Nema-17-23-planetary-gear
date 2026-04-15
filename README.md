@@ -179,8 +179,7 @@ Join `RingBottom` and `Ring` at their bottoms
 
 ![](assets/join%20ring%20bottom%20and%20ring%20at%20the%20bottom.png)
 
-Join `Ring` and `RingTop` at their tops, rotating `RingTop` 3°
-![](assets/rotate_ring_top.png)
+Join `Ring` and `RingTop` at their tops
 
 Should end up with this
 
