@@ -1,6 +1,7 @@
 # Nema-17/23-planetary-gear
 
 A fully parametric planetary gearbox designed for NEMA 17/23 motors.
+
 Gear ratio, backlash, and geometry can be adjusted through parameters.
 
 ![](assets/fully%20assembled.png)
@@ -82,7 +83,7 @@ You should end up with this
 
 ![](assets/generated%20gears.png)
 
-Export ring gear as `RingTemp` to your project
+Export ring gear as `Ring` to your project
 
 ![](assets/export%20ring.png)
 
@@ -170,29 +171,30 @@ We now have all the components, time to combine them
 
 ### Assemble Components
 
-In a new Hybrid Design, import `RingBottom`, `RingTemp` and `RingTop`
+Open `Ring`, import `RingBottom` and `RingTop`
 
-![](assets/new%20hybrid%20design,%20insert%20ring,ring%20top%20and%20ring%20bottom.png)
+![](assets/open_ring_temp.png)
 
-Break link any of them
-
-Join `RingBottom` and `RingTemp` at their bottoms
+Join `RingBottom` and `Ring` at their bottoms
 
 ![](assets/join%20ring%20bottom%20and%20ring%20at%20the%20bottom.png)
 
-Join `RingTemp`'s top and `RingTop`'s bottom
+Join `Ring` and `RingTop` at their tops, rotating `RingTop` 3°
+![](assets/rotate_ring_top.png)
 
 Should end up with this
 
 ![](assets/ring_joined.png)
 
-Combine all of them as new component
+Combine all of them
 
-Export to project as `Ring`
+Select and cut the 3 screw mounts
 
-Close current design without saving
+![](assets/select_screws.png)
 
-Move `RingTemp` to trash
+Remove `RingBottom` and `RingTop`
+
+Save
 
 ---
 
@@ -222,7 +224,7 @@ Close current design without saving
 
 ---
 
-Open `CarrierGenerator`, move the timeline marker all the way to the end
+Open `CarrierGenerator` again, move the timeline marker all the way to the end
 
 Insert `CarrierOutput`
 
