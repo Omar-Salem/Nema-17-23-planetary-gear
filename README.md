@@ -33,7 +33,7 @@ Gear ratio, backlash, and geometry can be adjusted through parameters.
 ### Important Limitation
 Parameters are not global across files.
 
-If you change a parameter (e.g. gear ratio), you must update it in all generator files.
+If you change a parameter (e.g. `gear_ratio`, `helix_angle` etc..), you must update it in all other files.
 
 This violates DRY principle, instead, global params should be used.
 
