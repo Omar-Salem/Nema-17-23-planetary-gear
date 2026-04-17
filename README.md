@@ -245,7 +245,7 @@ Combine all as new component, export it to project as `SecondStage`
 * Ring
 * Planet
 * MotorInput
-* SunTop
+* SunSpacer
 
 ❗ Make sure you print `SecondStage` at 45&deg; with 100% infill as it handles the most torque
 
@@ -258,7 +258,7 @@ Combine all as new component, export it to project as `SecondStage`
 
 Print 6 `Planet`s ($n_{stages} \times n_{planetsPerStage}$)
 
-Print 2 `SunTop`s (_1 per stage_)
+Print 2 `SunSpacer`s (_1 per stage_)
 
 
 ![](assets/plate_1.png)
