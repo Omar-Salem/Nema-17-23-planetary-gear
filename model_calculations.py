@@ -5,15 +5,15 @@ from typing import Dict, List, Tuple
 # -------------------------
 # ASSUMPTIONS
 # -------------------------
-LEWIS_CORRECTION_FACTOR = 1.2
+LEWIS_CORRECTION_FACTOR = 1.0
 GEAR_EFFICIENCY = 0.8
-SAFETY_FACTOR = 3
-LOAD_SHARING_FACTOR = 1
+LOAD_SHARING_FACTOR = 1.0
 
 # -------------------------
 # GLOBAL PARAMETERS
 # -------------------------
 GRAVITY_METER_SEC_SEC = 9.81
+SAFETY_FACTOR = 3
 
 PLA_STRENGTH_MEGA_PASCAL = 45  # N/mm²
 MAX_SIGMA_ALLOWED_PLA = PLA_STRENGTH_MEGA_PASCAL / SAFETY_FACTOR
@@ -576,16 +576,8 @@ def find_max_safe_load() -> Tuple[float, float]:
 
 
 def calculate_system_backlash() -> Tuple[float, float, float]:
-    overlap_ratio = (SUN_FACE_WIDTH_MM * math.tan(HELIX_ANGLE_RAD)) / (math.pi * MODULE_MM)
 
-    effective_backlash_factor = 1 + overlap_ratio
-
-    single_mesh_backlash_rad = (
-                                       GEAR_BACKLASH_MM
-                                       / (SUN_PITCH_RADIUS_MM * math.cos(PRESSURE_ANGLE_RADIANS))
-                               ) / effective_backlash_factor
-
-    # single_mesh_backlash_rad = (2 * TOOTH_BACKLASH_MM) / (MODULE_MM * SUN_TEETH_COUNT * math.cos(PRESSURE_ANGLE_RADIANS))
+    single_mesh_backlash_rad = (2 * GEAR_BACKLASH_MM) / (MODULE_MM * SUN_TEETH_COUNT * math.cos(PRESSURE_ANGLE_RADIANS))
     stage_backlash_rad = 2 * single_mesh_backlash_rad  # sun-planet and planet-ring meshes
 
     total_backlash_rad = 0.0
