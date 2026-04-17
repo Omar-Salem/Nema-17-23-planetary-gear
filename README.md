@@ -197,15 +197,13 @@ Save
 
 ---
 
-Open `CarrierGenerator`, note the timeline is pulled 2 steps
+Open `CarrierGenerator`, note the timeline is pulled back 2 steps
 
 
 
 ![](assets/carrier_timeline.png)
 
-insert `Sun`
-
-Break link any of them
+Insert `Sun`
 
 Join `Sun`'s bottom with `Carrier`'s top at their centers
 
@@ -229,7 +227,8 @@ Insert `CarrierOutput`
 
 ![](assets/in%20same%20manner,%20create%20second%20stage%20using%20output%20component.png)
 
-Break link any of them, join `CarrierOutput` bottom at `CarrierGenerator`'s top at their centers
+
+Join `CarrierOutput` bottom at `CarrierGenerator`'s top at their centers
 
 Should end up with this
 
@@ -247,7 +246,7 @@ Combine all as new component, export it to project as `SecondStage`
 * MotorInput
 * SunSpacer
 
-❗ Make sure you print `SecondStage` at 45&deg; with 100% infill as it handles the most torque
+❗ Make sure you print `SecondStage` at 45&deg; with 100% infill as it takes the most stress
 
 ![](assets/carrier%2045.png)
 

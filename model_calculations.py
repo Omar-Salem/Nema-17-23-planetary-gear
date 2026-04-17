@@ -32,7 +32,7 @@ PRESSURE_ANGLE_RADIANS = math.radians(PRESSURE_ANGLE_DEGREE)
 STAGES_COUNT = 2
 GEAR_BACKLASH_MM = 0.1
 ASSEMBLY_CLEARANCE_MM = 0.1
-HELIX_ANGLE_DEGREE = 20
+HELIX_ANGLE_DEGREE = 0
 HELIX_ANGLE_RAD = math.radians(HELIX_ANGLE_DEGREE)
 
 # -------------------------
@@ -630,13 +630,13 @@ if __name__ == "__main__":
     print(f"Linear Backlash at Load Arm ({LOAD_LEVER_ARM_MM}mm): {b_linear:5.2f} mm\n")
     
     
-    print(f"Module: {MODULE_MM:5.2f} mm")
-    print(f"Sun teeth count: {SUN_TEETH_COUNT:2.0f}")
-    print(f"Pressure angle: {PRESSURE_ANGLE_DEGREE:5.2f}°")
-    print(f"Helix angle: {HELIX_ANGLE_DEGREE:5.2f}°\n")
+    # print(f"Module: {MODULE_MM:5.2f} mm")
+    # print(f"Sun teeth count: {SUN_TEETH_COUNT:2.0f}")
+    # print(f"Pressure angle: {PRESSURE_ANGLE_DEGREE:5.2f}°")
+    # print(f"Helix angle: {HELIX_ANGLE_DEGREE:5.2f}°\n")
     
-    print(f"Angular Backlash: {b_deg:5.2f}°")
-    print(f"Ring Diameter: {RING_DIAMETER_MM:5.2f} mm")
+    # print(f"Angular Backlash: {b_deg:5.2f}°")
+    # print(f"Ring Diameter: {RING_DIAMETER_MM:5.2f} mm")
 
     print("-" * 50)
     print("3. MAXIMUM SAFE LOAD CAPACITY")
