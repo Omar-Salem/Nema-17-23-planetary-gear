@@ -39,14 +39,14 @@ HELIX_ANGLE_RAD = math.radians(HELIX_ANGLE_DEGREE)
 # SUN
 # -------------------------
 SUN_TEETH_COUNT = 12
-SUN_FACE_WIDTH_MM = 13
+SUN_FACE_WIDTH_MM = 15
 SUN_PITCH_RADIUS_MM = (MODULE_MM * SUN_TEETH_COUNT) / (2 * math.cos(HELIX_ANGLE_RAD))
 
 # -------------------------
 # PLANET
 # -------------------------
 PLANET_TEETH_COUNT = int((GEAR_RATIO - 2) * SUN_TEETH_COUNT / 2)
-PLANET_FACE_WIDTH_MM = 8
+PLANET_FACE_WIDTH_MM = 10
 
 # -------------------------
 # PIN
