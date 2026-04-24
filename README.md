@@ -255,7 +255,7 @@ Combine all as new component, export it to project as `SecondStage`
 
 [Autodesk Fusion: Make supports like Slant 3D](https://www.youtube.com/watch?v=sn2u949g7dM)
 
-Print 6 `Planet`s ($n_{stages} \times n_{planetsPerStage}$)
+Print 6 `Planet`s
 
 Print 2 `SunSpacer`s (_1 per stage_)
 
