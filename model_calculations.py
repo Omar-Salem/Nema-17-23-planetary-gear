@@ -576,19 +576,33 @@ def find_max_safe_load() -> Tuple[float, float]:
 
 
 def calculate_system_backlash() -> Tuple[float, float, float]:
-
-    single_mesh_backlash_rad = (2 * GEAR_BACKLASH_MM) / (MODULE_MM * SUN_TEETH_COUNT * math.cos(PRESSURE_ANGLE_RADIANS))
-    stage_backlash_rad = 2 * single_mesh_backlash_rad  # sun-planet and planet-ring meshes
+    
+    # Calculate pitch diameters for the sun and ring
+    d_sun = (MODULE_MM * SUN_TEETH_COUNT) / math.cos(HELIX_ANGLE_RAD)
+    d_ring = (MODULE_MM * RING_TEETH_COUNT) / math.cos(HELIX_ANGLE_RAD)
+    d_equiv = d_sun + d_ring
+    
+    # Total carrier backlash in radians for a single stage
+    # Numerator is 4 * J_n (assuming the clearance is the same at both sun-planet and planet-ring meshes)
+    numerator = 4 * GEAR_BACKLASH_MM
+    denominator = d_equiv * math.cos(PRESSURE_ANGLE_RADIANS)
+    stage_backlash_rad = numerator / denominator
 
     total_backlash_rad = 0.0
     for i in range(1, STAGES_COUNT + 1):
+        # Backlash from earlier stages gets reduced by the gear ratio of the subsequent stages
         stages_after = STAGES_COUNT - i
         reflected_backlash = stage_backlash_rad / math.pow(GEAR_RATIO, stages_after)
         total_backlash_rad += reflected_backlash
 
+    # Convert to standard units
     total_backlash_deg = math.degrees(total_backlash_rad)
+    total_backlash_arcmin = total_backlash_deg * 60.0
+    
+    # Calculate the linear lost motion at the end of the load lever
+    lost_motion_mm = total_backlash_rad * LOAD_LEVER_ARM_MM
 
-    return total_backlash_deg
+    return total_backlash_deg, total_backlash_arcmin, lost_motion_mm
 
 
 if __name__ == "__main__":
@@ -600,10 +614,10 @@ if __name__ == "__main__":
     print("-" * 50)
     print("2. OUTPUT BACKLASH")
     print("-" * 50)
-    b_deg = calculate_system_backlash()
-    print(f"Angular Backlash: {b_deg:5.2f}°\n")
-    
-    
+    b_deg, b_arcmin, lost_motion = calculate_system_backlash()
+    print(f"Angular Backlash: {b_deg:5.2f}° ({b_arcmin:5.2f}'')\n")
+    print(f"Linear Lost Motion: {lost_motion:5.2f} mm\n")
+
     # print(f"Module: {MODULE_MM:5.2f} mm")
     # print(f"Sun teeth count: {SUN_TEETH_COUNT:2.0f}")
     # print(f"Pressure angle: {PRESSURE_ANGLE_DEGREE:5.2f}°")
