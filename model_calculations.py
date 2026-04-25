@@ -621,7 +621,6 @@ if __name__ == "__main__":
     # print(f"Module: {MODULE_MM:5.2f} mm")
     # print(f"Sun teeth count: {SUN_TEETH_COUNT:2.0f}")
     # print(f"Pressure angle: {PRESSURE_ANGLE_DEGREE:5.2f}°")
-    # print(f"Helix angle: {HELIX_ANGLE_DEGREE:5.2f}°\n")
     
     # print(f"Angular Backlash: {b_deg:5.2f}°")
     # print(f"Ring Diameter: {RING_DIAMETER_MM:5.2f} mm")
