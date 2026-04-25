@@ -615,7 +615,7 @@ if __name__ == "__main__":
     print("2. OUTPUT BACKLASH")
     print("-" * 50)
     b_deg, b_arcmin, lost_motion = calculate_system_backlash()
-    print(f"Angular Backlash: {b_deg:5.2f}° ({b_arcmin:5.2f}'')\n")
+    print(f"Angular Backlash: {b_deg:5.2f}° ({b_arcmin:5.2f}'')")
     print(f"Linear Lost Motion: {lost_motion:5.2f} mm\n")
 
     # print(f"Module: {MODULE_MM:5.2f} mm")
