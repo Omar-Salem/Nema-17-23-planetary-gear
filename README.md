@@ -283,7 +283,8 @@ Print 2 `SunSpacer`s (_1 per stage_)
 1. Attach the cover with three 16mm M3 bolts.
 
 1. Press the remaining heat sinks into the cover and output shaft.
-
+ 
+ _Bearing sizes will change depending on gear ratio_
 
 https://github.com/user-attachments/assets/527c2508-7acf-4f8b-a0d8-41f765740e9c
 
