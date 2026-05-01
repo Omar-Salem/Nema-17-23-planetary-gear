@@ -576,33 +576,47 @@ def find_max_safe_load() -> Tuple[float, float]:
 
 
 def calculate_system_backlash() -> Tuple[float, float, float]:
-    
-    # Calculate pitch diameters for the sun and ring
+    # 1. GEOMETRIC BACKLASH (From tooth clearance and backlash)
     d_sun = (MODULE_MM * SUN_TEETH_COUNT) / math.cos(HELIX_ANGLE_RAD)
     d_ring = (MODULE_MM * RING_TEETH_COUNT) / math.cos(HELIX_ANGLE_RAD)
     d_equiv = d_sun + d_ring
     
-    # Total carrier backlash in radians for a single stage
-    # Numerator is 4 * J_n (assuming the clearance is the same at both sun-planet and planet-ring meshes)
-    numerator = 4 * GEAR_BACKLASH_MM
-    denominator = d_equiv * math.cos(PRESSURE_ANGLE_RADIANS)
-    stage_backlash_rad = numerator / denominator
+    stage_geo_backlash_rad = (4 * GEAR_BACKLASH_MM) / (d_equiv * math.cos(PRESSURE_ANGLE_RADIANS))
 
-    total_backlash_rad = 0.0
-    for i in range(1, STAGES_COUNT + 1):
-        # Backlash from earlier stages gets reduced by the gear ratio of the subsequent stages
-        stages_after = STAGES_COUNT - i
-        reflected_backlash = stage_backlash_rad / math.pow(GEAR_RATIO, stages_after)
-        total_backlash_rad += reflected_backlash
-
-    # Convert to standard units
-    total_backlash_deg = math.degrees(total_backlash_rad)
-    total_backlash_arcmin = total_backlash_deg * 60.0
+    # 2. COMPLIANCE BACKLASH (Pin deflection under load)
+    load_torque = LOAD_WEIGHT_KG * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
+    total_ratio = math.pow(GEAR_RATIO, STAGES_COUNT)
     
-    # Calculate the linear lost motion at the end of the load lever
-    lost_motion_mm = total_backlash_rad * LOAD_LEVER_ARM_MM
+    # Calculate force on a single pin in the final stage
+    # (Simplified approximation for the purpose of backlash)
+    f_tangential = (load_torque / (SUN_PITCH_RADIUS_MM * GEAR_RATIO * PLANETS_COUNT))
+    
+    # Instantiate a dummy pin to steal its deflection calculation
+    # Using the SupportedPin logic for the final stage
+    temp_pin = SupportedPin(f_tangential, PIN_DIAMETER_MM, PIN_LENGTH_MM, MAX_SIGMA_ALLOWED_STEEL, M3_BOLT_DIAMETER_MM)
+    pin_deflection_mm = temp_pin._deflection()
+    
+    # Convert linear pin deflection to angular stage deflection
+    # R_carrier is roughly (D_sun + D_planet)/2
+    r_carrier = (SUN_PITCH_RADIUS_MM + (PLANET_TEETH_COUNT * MODULE_MM / 2))
+    stage_compliance_rad = pin_deflection_mm / r_carrier
 
-    return total_backlash_deg, total_backlash_arcmin, lost_motion_mm
+    # 3. ASSEMBLY SLOP (Radial play in pin holes)
+    # Even a 0.05mm fit error creates angular "dead zone"
+    stage_slop_rad = ASSEMBLY_CLEARANCE_MM / r_carrier
+
+    # TOTALS
+    total_backlash_rad = 0.0
+    # Combine components for a single stage
+    total_stage_lost_motion = stage_geo_backlash_rad + stage_compliance_rad + stage_slop_rad
+
+    for i in range(1, STAGES_COUNT + 1):
+        stages_after = STAGES_COUNT - i
+        reflected = total_stage_lost_motion / math.pow(GEAR_RATIO, stages_after)
+        total_backlash_rad += reflected
+
+    total_deg = math.degrees(total_backlash_rad)
+    return total_deg, total_deg * 60, total_backlash_rad * LOAD_LEVER_ARM_MM
 
 
 if __name__ == "__main__":
