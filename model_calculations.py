@@ -631,12 +631,13 @@ if __name__ == "__main__":
     max_kg, max_torque = find_max_safe_load()
     print(f"Max Safe Load at {LOAD_LEVER_ARM_MM:5.2f} mm: {max_kg:5.2f} kg ({max_torque:4.0f} N·mm)\n")
     
-    
+  
+    # print(f"Gear backlash: {GEAR_BACKLASH_MM:5.2f} mm")  
     # print(f"Module: {MODULE_MM:5.2f} mm")
     # print(f"Sun teeth count: {SUN_TEETH_COUNT:2.0f}")
     # print(f"Pressure angle: {PRESSURE_ANGLE_DEGREE:5.2f}°\n")
     
-    # print(f"Ring Diameter: {RING_DIAMETER_MM:5.2f} mm")
+    # print(f"Ring Diameter: {RING_DIAMETER_MM:5.2f} mm\n")
 
     print("-" * 50)
     print("3. OUTPUT BACKLASH")
