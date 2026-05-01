@@ -626,21 +626,21 @@ if __name__ == "__main__":
     display_stage_results(LOAD_WEIGHT_KG, GEAR_EFFICIENCY)
 
     print("-" * 50)
-    print("2. OUTPUT BACKLASH")
+    print("2. MAXIMUM SAFE LOAD CAPACITY")
     print("-" * 50)
-    b_deg, b_arcmin, lost_motion = calculate_system_backlash()
-    print(f"Angular Backlash: {b_deg:5.2f}° ({b_arcmin:5.2f}'')")
-    print(f"Linear Lost Motion: {lost_motion:5.2f} mm\n")
-
+    max_kg, max_torque = find_max_safe_load()
+    print(f"Max Safe Load at {LOAD_LEVER_ARM_MM:5.2f} mm: {max_kg:5.2f} kg ({max_torque:4.0f} N·mm)\n")
+    
+    
     # print(f"Module: {MODULE_MM:5.2f} mm")
     # print(f"Sun teeth count: {SUN_TEETH_COUNT:2.0f}")
-    # print(f"Pressure angle: {PRESSURE_ANGLE_DEGREE:5.2f}°")
+    # print(f"Pressure angle: {PRESSURE_ANGLE_DEGREE:5.2f}°\n")
     
-    # print(f"Angular Backlash: {b_deg:5.2f}° ({b_arcmin:5.2f}'')\n")
     # print(f"Ring Diameter: {RING_DIAMETER_MM:5.2f} mm")
 
     print("-" * 50)
-    print("3. MAXIMUM SAFE LOAD CAPACITY")
+    print("3. OUTPUT BACKLASH")
     print("-" * 50)
-    max_kg, max_torque = find_max_safe_load()
-    print(f"Max Safe Load: {max_kg:5.2f} kg ({max_torque:4.0f} N·mm)\n")
+    b_deg, b_arcmin, lost_motion = calculate_system_backlash()
+    print(f"Angular Backlash: {b_deg:5.2f}° ({b_arcmin:5.2f}'')")
+    print(f"Linear Lost Motion at {LOAD_LEVER_ARM_MM:5.2f} mm: {lost_motion:5.2f} mm\n")
