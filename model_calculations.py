@@ -252,6 +252,15 @@ class Ring(Gear):
         sigma_b = self._calculate_bending_stress()
         sigma_o = self._calculate_ovalization()
         return math.sqrt(math.pow(sigma_b + sigma_o, 2))
+    
+    def get_radial_expansion_mm(self) -> float:
+        return (self.radial_force * self.pitch_radius_mm) / (
+            PLA_YOUNG_MODULUS_N_MM * self.thickness * self.face_width_mm
+        )
+
+    def get_angular_deflection_rad(self) -> float:
+        delta_r = self.get_radial_expansion_mm()
+        return delta_r / self.pitch_radius_mm
 
 
 class PinBase(Component):
@@ -444,6 +453,16 @@ class CarrierHub(Component):
             "Total Tang Bolt Load (N)": round(bolt_shear * self.bolt_count, 2),
             "Total Axial Bolt Load (N)": round(bolt_tension * self.bolt_count, 2)
         }
+        
+    def get_torsional_deflection_rad(self) -> float:
+        # Approximate shaft as solid cylinder
+        J = (math.pi / 2) * self.shaft_radius**4
+        G = PLA_YOUNG_MODULUS_N_MM / (2 * (1 + PLA_POISSONS_RATIO))
+
+        # effective torsion length (tune this!)
+        L_eff = self.shaft_radius * 2  
+
+        return (self.load_torque_n_mm * L_eff) / (J * G)
 
 
 class Stage:
@@ -586,9 +605,7 @@ def calculate_system_backlash() -> Tuple[float, float, float]:
     load_torque = LOAD_WEIGHT_KG * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
     total_ratio = math.pow(GEAR_RATIO, STAGES_COUNT)
     
-    # Calculate force on a single pin in the final stage
-    # (Simplified approximation for the purpose of backlash)
-    f_tangential = (load_torque / (SUN_PITCH_RADIUS_MM * GEAR_RATIO * PLANETS_COUNT))
+    f_tangential = load_torque / (SUN_PITCH_RADIUS_MM * PLANETS_COUNT)
     
     # Instantiate a dummy pin to steal its deflection calculation
     # Using the SupportedPin logic for the final stage
