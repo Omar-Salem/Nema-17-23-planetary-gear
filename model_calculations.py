@@ -284,7 +284,7 @@ class PinBase(Component):
         return {
             "F_t (Tang) N": round(f_tangential_applied, 2),
             "F_r (Rad) N": round(f_radial_applied, 2),
-            "Deflection mm": round(self._deflection(), 4)
+            "Deflection mm": round(self.get_deflection(), 4)
         }
 
     @abstractmethod
@@ -300,7 +300,7 @@ class PinBase(Component):
         pass
 
     @abstractmethod
-    def _deflection(self) -> float:
+    def get_deflection(self) -> float:
         pass
 
 
@@ -322,7 +322,7 @@ class Pin(PinBase):
         tau = self._tau()
         return math.sqrt(math.pow(sigma, 2) + 3 * math.pow(tau, 2))
 
-    def _deflection(self) -> float:
+    def get_deflection(self) -> float:
         I = self._inertia(self.R)
         EI = self.YOUNG_MODULUS_PLA_N_MM * I
         return self.F * math.pow(self.L, 3) / (8 * EI)
@@ -346,7 +346,7 @@ class SupportedPin(PinBase):
         self.d_bolt = steel_bolt_diameter_mm
         self.r_bolt = steel_bolt_diameter_mm / 2
 
-    def _deflection(self) -> float:
+    def get_deflection(self) -> float:
         I_outer = self._inertia(self.R)
         I_inner = self._inertia(self.r_bolt)
         EI = (self.YOUNG_MODULUS_PLA_N_MM * (I_outer - I_inner) + self.YOUNG_MODULUS_STEEL_N_MM * I_inner)
@@ -588,7 +588,7 @@ def calculate_system_backlash() -> Tuple[float, float, float]:
     # Instantiate a dummy pin to steal its deflection calculation
     # Using the SupportedPin logic for the final stage
     temp_pin = SupportedPin(f_tangential, PIN_DIAMETER_MM, PIN_LENGTH_MM, MAX_SIGMA_ALLOWED_STEEL, M3_BOLT_DIAMETER_MM)
-    pin_deflection_mm = temp_pin._deflection()
+    pin_deflection_mm = temp_pin.get_deflection()
     
     # Convert linear pin deflection to angular stage deflection
     # R_carrier is roughly (D_sun + D_planet)/2
