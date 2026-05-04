@@ -491,13 +491,7 @@ def build_stages(load_weight_kg: float, efficiency: float) -> List[Stage]:
             math.pow(2 * radial_force, 2)
         )
 
-        pin = Pin(
-            pin_force,
-            PIN_DIAMETER_MM,
-            PIN_LENGTH_MM,
-            PIN_FILLET_RADIUS_MM,
-            MAX_SIGMA_ALLOWED_PLA
-        ) if i < STAGES_COUNT else SupportedPin(
+        pin = SupportedPin(
             pin_force,
             PIN_DIAMETER_MM,
             PIN_LENGTH_MM,

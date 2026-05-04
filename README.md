@@ -16,7 +16,7 @@ Gear ratio, backlash, and geometry can be adjusted through parameters.
     * (L5 $\times$ 4.2mm OD) $\times$ 15
 * M3 hex bolts
     * 91290A120 (16mm)  $\times$ 3
-    * 91290A115 (10mm)  $\times$ 3
+    * 91290A115 (10mm)  $\times$ 6
     * 91290A111 (6mm)  $\times$ 4
 * Deep groove ball bearings
     * 4668K269 (35mm $\times$ 47mm $\times$ 7mm) $\times$ 1
@@ -197,7 +197,7 @@ Save
 
 ---
 
-Open `CarrierGenerator`, note the timeline is pulled back 2 steps
+Open `CarrierGenerator`
 
 
 
@@ -221,7 +221,7 @@ Close current design without saving
 
 ---
 
-Open `CarrierGenerator` again, move the timeline marker all the way to the end
+Open `CarrierGenerator` again
 
 Insert `CarrierOutput`
 
