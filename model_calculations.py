@@ -15,11 +15,20 @@ LOAD_SHARING_FACTOR = 1.0
 GRAVITY_METER_SEC_SEC = 9.81
 SAFETY_FACTOR = 3
 
+
+# -------------------------
+# MATERIAL
+# -------------------------
 PLA_STRENGTH_MEGA_PASCAL = 45  # N/mm²
-MAX_SIGMA_ALLOWED_PLA = PLA_STRENGTH_MEGA_PASCAL / SAFETY_FACTOR
+PLA_MAX_SIGMA_ALLOWED = PLA_STRENGTH_MEGA_PASCAL / SAFETY_FACTOR
+PLA_YOUNG_MODULUS_N_MM = 2500
+PLA_POISSONS_RATIO = 0.35
 
 STEEL_STRENGTH_MEGA_PASCAL = 1080
-MAX_SIGMA_ALLOWED_STEEL = STEEL_STRENGTH_MEGA_PASCAL / SAFETY_FACTOR
+STEEL_MAX_SIGMA_ALLOWED = STEEL_STRENGTH_MEGA_PASCAL / SAFETY_FACTOR
+
+STEEL_YOUNG_MODULUS_N_MM = 200000
+STEEL_POISSONS_RATIO = 0.30
 
 # -------------------------
 # GEAR SPECS
@@ -246,9 +255,7 @@ class Ring(Gear):
 
 
 class PinBase(Component):
-    YOUNG_MODULUS_PLA_N_MM = 2500
-    POISSONS_RATIO_PLA = 0.35
-    SHEAR_MODULUS_PLA = YOUNG_MODULUS_PLA_N_MM / (2 * (1 + POISSONS_RATIO_PLA))
+    SHEAR_MODULUS_PLA = PLA_YOUNG_MODULUS_N_MM / (2 * (1 + PLA_POISSONS_RATIO))
 
     def __init__(self, force_N: float, diameter_mm: float, length_mm: float, threshold: float, name: str) -> None:
         super().__init__(name, threshold)
@@ -324,7 +331,7 @@ class Pin(PinBase):
 
     def get_deflection(self) -> float:
         I = self._inertia(self.R)
-        EI = self.YOUNG_MODULUS_PLA_N_MM * I
+        EI = PLA_YOUNG_MODULUS_N_MM * I
         return self.F * math.pow(self.L, 3) / (8 * EI)
 
     def _sigma(self, M: float, I: float) -> float:
@@ -336,9 +343,7 @@ class Pin(PinBase):
 
 
 class SupportedPin(PinBase):
-    YOUNG_MODULUS_STEEL_N_MM = 200000
-    POISSONS_RATIO_STEEL = 0.30
-    SHEAR_MODULUS_STEEL = YOUNG_MODULUS_STEEL_N_MM / (2 * (1 + POISSONS_RATIO_STEEL))
+    SHEAR_MODULUS_STEEL = STEEL_YOUNG_MODULUS_N_MM / (2 * (1 + STEEL_POISSONS_RATIO))
 
     def __init__(self, force_N: float, diameter_mm: float, length_mm: float, threshold: float,
                  steel_bolt_diameter_mm: float) -> None:
@@ -349,7 +354,7 @@ class SupportedPin(PinBase):
     def get_deflection(self) -> float:
         I_outer = self._inertia(self.R)
         I_inner = self._inertia(self.r_bolt)
-        EI = (self.YOUNG_MODULUS_PLA_N_MM * (I_outer - I_inner) + self.YOUNG_MODULUS_STEEL_N_MM * I_inner)
+        EI = (PLA_YOUNG_MODULUS_N_MM * (I_outer - I_inner) + STEEL_YOUNG_MODULUS_N_MM * I_inner)
         return self.F * math.pow(self.L, 3) / (8 * EI)
 
     def _von_mises(self) -> float:
@@ -368,7 +373,7 @@ class SupportedPin(PinBase):
 
     def _sigma(self, M: float, I_outer: float) -> float:
         I_inner = self._inertia(self.r_bolt)
-        n = self.YOUNG_MODULUS_STEEL_N_MM / self.YOUNG_MODULUS_PLA_N_MM
+        n = STEEL_YOUNG_MODULUS_N_MM / PLA_YOUNG_MODULUS_N_MM
         I_trans = (I_outer - I_inner) + n * I_inner
         return n * M * self.r_bolt / I_trans
 
@@ -472,8 +477,8 @@ def build_stages(load_weight_kg: float, efficiency: float) -> List[Stage]:
 
         radial_force = tangential_force * math.tan(PRESSURE_ANGLE_RADIANS) / math.cos(HELIX_ANGLE_RAD)
 
-        sun = Gear(SUN_TEETH_COUNT, SUN_FACE_WIDTH_MM, tangential_force, "Sun", MAX_SIGMA_ALLOWED_PLA)
-        planet = Gear(PLANET_TEETH_COUNT, PLANET_FACE_WIDTH_MM, tangential_force, "Planet", MAX_SIGMA_ALLOWED_PLA)
+        sun = Gear(SUN_TEETH_COUNT, SUN_FACE_WIDTH_MM, tangential_force, "Sun", PLA_MAX_SIGMA_ALLOWED)
+        planet = Gear(PLANET_TEETH_COUNT, PLANET_FACE_WIDTH_MM, tangential_force, "Planet", PLA_MAX_SIGMA_ALLOWED)
 
         ring_total_radial = PLANETS_COUNT * radial_force
         ring_total_tangential = PLANETS_COUNT * tangential_force
@@ -483,7 +488,7 @@ def build_stages(load_weight_kg: float, efficiency: float) -> List[Stage]:
             ring_total_tangential,
             ring_total_radial,
             RING_WALL_THICKNESS_MM,
-            MAX_SIGMA_ALLOWED_PLA
+            PLA_MAX_SIGMA_ALLOWED
         )
 
         pin_force = math.sqrt(
@@ -495,7 +500,7 @@ def build_stages(load_weight_kg: float, efficiency: float) -> List[Stage]:
             pin_force,
             PIN_DIAMETER_MM,
             PIN_LENGTH_MM,
-            MAX_SIGMA_ALLOWED_STEEL,
+            STEEL_MAX_SIGMA_ALLOWED,
             M3_BOLT_DIAMETER_MM
         )
 
@@ -510,7 +515,7 @@ def build_stages(load_weight_kg: float, efficiency: float) -> List[Stage]:
                 bolt_circle_radius_mm=CARRIER_HUB_BOLT_CIRCLE_RADIUS_MM,
                 insert_diameter_mm=HEAT_INSERT_DIAMETER_MM,
                 insert_embed_depth_mm=HEAT_INSERT_EMBED_DEPTH_MM,
-                threshold=MAX_SIGMA_ALLOWED_PLA
+                threshold=PLA_MAX_SIGMA_ALLOWED
             )
             components.append(carrier_hub)
 
@@ -587,7 +592,7 @@ def calculate_system_backlash() -> Tuple[float, float, float]:
     
     # Instantiate a dummy pin to steal its deflection calculation
     # Using the SupportedPin logic for the final stage
-    temp_pin = SupportedPin(f_tangential, PIN_DIAMETER_MM, PIN_LENGTH_MM, MAX_SIGMA_ALLOWED_STEEL, M3_BOLT_DIAMETER_MM)
+    temp_pin = SupportedPin(f_tangential, PIN_DIAMETER_MM, PIN_LENGTH_MM, STEEL_MAX_SIGMA_ALLOWED, M3_BOLT_DIAMETER_MM)
     pin_deflection_mm = temp_pin.get_deflection()
     
     # Convert linear pin deflection to angular stage deflection
