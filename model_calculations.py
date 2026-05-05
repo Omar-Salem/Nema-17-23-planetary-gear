@@ -139,10 +139,6 @@ class Component(ABC):
         if not fem_dict:
             return "-"
         return ", ".join([f"{k}: {v:g}" for k, v in fem_dict.items()])
-    
-    @abstractmethod
-    def get_stiffness(self) -> float:
-        pass
 
 
 class Gear(Component):
@@ -226,17 +222,7 @@ class Gear(Component):
         sigma_a = self._calculate_axial_bending_stress()
         tau = self._calculate_shear_stress()
         return math.sqrt(math.pow(sigma_b + sigma_a, 2) + 3 * math.pow(tau, 2))
-    
-    def get_stiffness(self) -> float:
-        # Effective tooth contact area
-        E = PLA_YOUNG_MODULUS_N_MM
-        
-        contact_area = self.face_width_mm * MODULE_MM
-        
-        # characteristic deformation length ~ module
-        L = MODULE_MM
-        
-        return (E * contact_area) / L
+
 
 
 class Ring(Gear):
@@ -267,18 +253,6 @@ class Ring(Gear):
         sigma_b = self._calculate_bending_stress()
         sigma_o = self._calculate_ovalization()
         return math.sqrt(math.pow(sigma_b + sigma_o, 2))
-    
-    def get_stiffness(self) -> float:
-        E = PLA_YOUNG_MODULUS_N_MM
-        
-        t = self.thickness
-        b = self.face_width_mm
-        r = self.pitch_radius_mm
-        
-        if r == 0:
-            return 0
-        
-        return (E * t * b) / r
 
 
 class PinBase(Component):
@@ -367,10 +341,7 @@ class Pin(PinBase):
     def _tau(self) -> float:
         area = self._area(self.R)
         return 4 * self.F / (3 * area)
-    
-    def get_stiffness(self) -> float:
-        delta = self.get_deflection()
-        return self.F / delta if delta != 0 else float("inf")
+
 
 
 class SupportedPin(PinBase):
@@ -407,10 +378,6 @@ class SupportedPin(PinBase):
         n = STEEL_YOUNG_MODULUS_N_MM / PLA_YOUNG_MODULUS_N_MM
         I_trans = (I_outer - I_inner) + n * I_inner
         return n * M * self.r_bolt / I_trans
-    
-    def get_stiffness(self) -> float:
-        delta = self.get_deflection()
-        return self.F / delta if delta != 0 else float("inf")
 
 
 class CarrierHub(Component):
@@ -479,25 +446,6 @@ class CarrierHub(Component):
             "Total Tang Bolt Load (N)": round(bolt_shear * self.bolt_count, 2),
             "Total Axial Bolt Load (N)": round(bolt_tension * self.bolt_count, 2)
         }
-        
-    def _get_torsional_deflection_rad(self) -> float:
-        # Approximate shaft as solid cylinder
-        J = (math.pi / 2) * self.shaft_radius**4
-        G = PLA_YOUNG_MODULUS_N_MM / (2 * (1 + PLA_POISSONS_RATIO))
-
-        # effective torsion length (tune this!)
-        L_eff = self.shaft_radius * 2  
-
-        return (self.load_torque_n_mm * L_eff) / (J * G)
-    
-    def get_stiffness(self) -> float:
-        theta = self._get_torsional_deflection_rad()
-        
-        if theta == 0:
-            return float("inf")
-        
-        return self.load_torque_n_mm / theta
-
 
 class Stage:
     def __init__(self, index: int, components: List[Component]) -> None:
