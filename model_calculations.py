@@ -767,7 +767,8 @@ def calculate_system_backlash(load_weight_kg: float = LOAD_WEIGHT_KG,
         K_stage = compute_stage_stiffness(stage)
 
         if K_stage != float("inf") and K_stage > 0:
-            theta_elastic = current_torque / K_stage
+            effective_torque = current_torque / PLANETS_COUNT
+            theta_elastic = effective_torque / K_stage
         else:
             theta_elastic = 0.0
 
