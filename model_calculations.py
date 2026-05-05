@@ -606,6 +606,21 @@ class Stage:
 
     def check_passed(self) -> bool:
         return all([c.passes_check() for c in self.components])
+    
+    
+
+    def compute_stiffness(self) -> float:
+        """
+        Equivalent torsional stiffness of a stage (N·mm / rad)
+        """
+        inv_k = 0.0
+
+        for c in self.components:
+            k = c.get_torsional_stiffness()
+            if k > 0 and k != float("inf"):
+                inv_k += 1.0 / k
+
+        return 1.0 / inv_k if inv_k > 0 else float("inf")
 
 
 def build_stages(load_weight_kg: float, efficiency: float) -> List[Stage]:
@@ -716,19 +731,6 @@ def find_max_safe_load() -> Tuple[float, float]:
 
     return max_load, final_torque
 
-def compute_stage_stiffness(stage: Stage) -> float:
-    """
-    Equivalent torsional stiffness of a stage (N·mm / rad)
-    """
-    inv_k = 0.0
-
-    for c in stage.components:
-        k = c.get_torsional_stiffness()
-        if k > 0 and k != float("inf"):
-            inv_k += 1.0 / k
-
-    return 1.0 / inv_k if inv_k > 0 else float("inf")
-
 def calculate_system_backlash(load_weight_kg: float = LOAD_WEIGHT_KG,
                               efficiency: float = GEAR_EFFICIENCY) -> Tuple[float, float, float]:
 
@@ -763,8 +765,7 @@ def calculate_system_backlash(load_weight_kg: float = LOAD_WEIGHT_KG,
 
     for i, stage in enumerate(stages):
 
-        # ---- stage stiffness ----
-        K_stage = compute_stage_stiffness(stage)
+        K_stage = stage.compute_stiffness()
 
         if K_stage != float("inf") and K_stage > 0:
             effective_torque = current_torque / PLANETS_COUNT
