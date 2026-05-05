@@ -23,13 +23,14 @@ PLA_STRENGTH_MEGA_PASCAL = 45  # N/mm²
 PLA_MAX_SIGMA_ALLOWED = PLA_STRENGTH_MEGA_PASCAL / SAFETY_FACTOR
 PLA_YOUNG_MODULUS_N_MM = 2500
 PLA_POISSONS_RATIO = 0.35
+PLA_SHEAR_MODULUS = PLA_YOUNG_MODULUS_N_MM / (2 * (1 + PLA_POISSONS_RATIO))
 
 STEEL_STRENGTH_MEGA_PASCAL = 1080
 STEEL_MAX_SIGMA_ALLOWED = STEEL_STRENGTH_MEGA_PASCAL / SAFETY_FACTOR
 
 STEEL_YOUNG_MODULUS_N_MM = 200000
 STEEL_POISSONS_RATIO = 0.30
-
+STEEL_SHEAR_MODULUS = STEEL_YOUNG_MODULUS_N_MM / (2 * (1 + STEEL_POISSONS_RATIO))
 # -------------------------
 # GEAR SPECS
 # -------------------------
@@ -43,6 +44,11 @@ GEAR_BACKLASH_MM = 0.2
 ASSEMBLY_CLEARANCE_MM = 0.1
 HELIX_ANGLE_DEGREE = 0
 HELIX_ANGLE_RAD = math.radians(HELIX_ANGLE_DEGREE)
+ADDENDUM_MM = 1.0 * MODULE_MM
+DEDENDUM_MM = 1.25 * MODULE_MM
+TOOTH_HEIGHT_MM = ADDENDUM_MM + DEDENDUM_MM
+EFFECTIVE_TOOTH_LENGTH_MM = 0.8 * TOOTH_HEIGHT_MM
+ROOT_THICKNESS_MM = 0.4 * MODULE_MM
 
 # -------------------------
 # SUN
@@ -139,6 +145,29 @@ class Component(ABC):
         if not fem_dict:
             return "-"
         return ", ".join([f"{k}: {v:g}" for k, v in fem_dict.items()])
+    
+    def get_elastic_response(self) -> Dict[str, float]:
+        """
+        Generic elastic response:
+        - deflection (linear mm or angular rad depending on component)
+        - stiffness (N/mm or Nmm/rad)
+        """
+        return {}
+
+    def get_stiffness(self) -> float:
+        """
+        Effective stiffness proxy (force / deflection).
+        """
+        elastic = self.get_elastic_response()
+        defl = elastic.get("deflection", 0.0)
+        force = elastic.get("force", 0.0)
+        return force / defl if defl else float("inf")
+    
+    def get_torsional_stiffness(self) -> float:
+        """
+        N·mm / rad
+        """
+        return float("inf")
 
 
 class Gear(Component):
@@ -222,8 +251,41 @@ class Gear(Component):
         sigma_a = self._calculate_axial_bending_stress()
         tau = self._calculate_shear_stress()
         return math.sqrt(math.pow(sigma_b + sigma_a, 2) + 3 * math.pow(tau, 2))
+    
+    def _tooth_inertia(self) -> float:
+        b = self.face_width_mm
+        t = ROOT_THICKNESS_MM
+        return (b * math.pow(t, 3)) / 12
 
+    def get_elastic_response(self) -> Dict[str, float]:
+        F = self.effective_force
+        E = PLA_YOUNG_MODULUS_N_MM
+        I = self._tooth_inertia()
 
+        L = EFFECTIVE_TOOTH_LENGTH_MM
+
+        deflection = (F * math.pow(L, 3)) / (3 * E * I)
+
+        return {
+            "deflection": deflection,
+            "force": F
+        }
+        
+    def get_torsional_stiffness(self) -> float:
+        elastic = self.get_elastic_response()
+        defl = elastic.get("deflection", 0.0)
+
+        if defl == 0:
+            return float("inf")
+
+        # convert linear tooth deflection → angular compliance
+        r = self.pitch_radius_mm
+
+        theta = defl / r  # rad
+
+        T = self.effective_force * r
+
+        return T / theta if theta else float("inf")
 
 class Ring(Gear):
     def __init__(self, teeth_count: int, face_width_mm: float, tangential_force: float, radial_force: float,
@@ -253,10 +315,27 @@ class Ring(Gear):
         sigma_b = self._calculate_bending_stress()
         sigma_o = self._calculate_ovalization()
         return math.sqrt(math.pow(sigma_b + sigma_o, 2))
+    
+    def get_elastic_response(self) -> Dict[str, float]:
+        F = self.effective_force
+        E = PLA_YOUNG_MODULUS_N_MM
 
+        I = self._tooth_inertia()
+        L = MODULE_MM
+
+        deflection = (F * math.pow(L, 3)) / (3 * E * I)
+
+        # include ovalization as compliance indicator
+        oval = self._calculate_ovalization()
+
+        return {
+            "deflection": deflection,
+            "ovalization": oval,
+            "force": F
+        }
+    
 
 class PinBase(Component):
-    SHEAR_MODULUS_PLA = PLA_YOUNG_MODULUS_N_MM / (2 * (1 + PLA_POISSONS_RATIO))
 
     def __init__(self, force_N: float, diameter_mm: float, length_mm: float, threshold: float, name: str) -> None:
         super().__init__(name, threshold)
@@ -342,10 +421,32 @@ class Pin(PinBase):
         area = self._area(self.R)
         return 4 * self.F / (3 * area)
 
+    def get_elastic_response(self) -> Dict[str, float]:
+        I = self._inertia(self.R)
+        E = PLA_YOUNG_MODULUS_N_MM
 
+        deflection = self.F * math.pow(self.L, 3) / (8 * E * I)
+
+        return {
+            "deflection": deflection,
+            "force": self.F
+        }
+    
+    def get_torsional_stiffness(self) -> float:
+        elastic = self.get_elastic_response()
+        defl = elastic["deflection"]
+
+        if defl == 0:
+            return float("inf")
+
+        # shear-based angular approximation
+        theta = defl / (self.D / 2)
+
+        T = self.F * (self.D / 2)
+
+        return T / theta
 
 class SupportedPin(PinBase):
-    SHEAR_MODULUS_STEEL = STEEL_YOUNG_MODULUS_N_MM / (2 * (1 + STEEL_POISSONS_RATIO))
 
     def __init__(self, force_N: float, diameter_mm: float, length_mm: float, threshold: float,
                  steel_bolt_diameter_mm: float) -> None:
@@ -368,8 +469,8 @@ class SupportedPin(PinBase):
         A_total = self._area(self.R)
         A_steel = self._area(self.r_bolt)
         A_pla = A_total - A_steel
-        share_steel = self.SHEAR_MODULUS_STEEL * A_steel
-        share_pla = self.SHEAR_MODULUS_PLA * A_pla
+        share_steel = STEEL_SHEAR_MODULUS * A_steel
+        share_pla = PLA_SHEAR_MODULUS * A_pla
         F_steel = self.F * share_steel / (share_steel + share_pla)
         return 4 * F_steel / (3 * A_steel)
 
@@ -379,6 +480,20 @@ class SupportedPin(PinBase):
         I_trans = (I_outer - I_inner) + n * I_inner
         return n * M * self.r_bolt / I_trans
 
+    def get_elastic_response(self) -> Dict[str, float]:
+        I_outer = self._inertia(self.R)
+        I_inner = self._inertia(self.r_bolt)
+
+        # effective flexural rigidity
+        EI = (PLA_YOUNG_MODULUS_N_MM * (I_outer - I_inner)
+              + STEEL_YOUNG_MODULUS_N_MM * I_inner)
+
+        deflection = self.F * math.pow(self.L, 3) / (8 * EI)
+
+        return {
+            "deflection": deflection,
+            "force": self.F
+        }
 
 class CarrierHub(Component):
     def __init__(
@@ -446,6 +561,33 @@ class CarrierHub(Component):
             "Total Tang Bolt Load (N)": round(bolt_shear * self.bolt_count, 2),
             "Total Axial Bolt Load (N)": round(bolt_tension * self.bolt_count, 2)
         }
+
+    def _polar_moment(self) -> float:
+        return (math.pi * math.pow(self.shaft_radius, 4)) / 2
+
+    def get_elastic_response(self) -> Dict[str, float]:
+    
+        G = PLA_SHEAR_MODULUS
+        J = self._polar_moment()
+
+        L = HEAT_INSERT_EMBED_DEPTH_MM
+
+        twist = (self.torque * L) / (G * J)
+
+        axial_deflection = self.load_torque_n_mm / (PLA_YOUNG_MODULUS_N_MM * math.pi * math.pow(self.shaft_radius, 2))
+
+        return {
+            "deflection": axial_deflection,
+            "twist_rad": twist,
+            "force": self.torque
+        }
+        
+    def get_torsional_stiffness(self) -> float:
+        G = PLA_SHEAR_MODULUS
+        J = self._polar_moment()
+        L = HEAT_INSERT_EMBED_DEPTH_MM
+
+        return (G * J) / L
 
 class Stage:
     def __init__(self, index: int, components: List[Component]) -> None:
@@ -574,28 +716,81 @@ def find_max_safe_load() -> Tuple[float, float]:
 
     return max_load, final_torque
 
+def compute_stage_stiffness(stage: Stage) -> float:
+    """
+    Equivalent torsional stiffness of a stage (N·mm / rad)
+    """
+    inv_k = 0.0
 
-def calculate_system_backlash() -> Tuple[float, float, float]:
-    # 1. GEOMETRIC BACKLASH (From tooth clearance and backlash)
+    for c in stage.components:
+        k = c.get_torsional_stiffness()
+        if k > 0 and k != float("inf"):
+            inv_k += 1.0 / k
+
+    return 1.0 / inv_k if inv_k > 0 else float("inf")
+
+def calculate_system_backlash(load_weight_kg: float = LOAD_WEIGHT_KG,
+                              efficiency: float = GEAR_EFFICIENCY) -> Tuple[float, float, float]:
+
+    # -------------------------
+    # INPUT TORQUE
+    # -------------------------
+    load_torque = load_weight_kg * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
+
+    total_ratio = math.pow(GEAR_RATIO, STAGES_COUNT)
+    total_efficiency = math.pow(efficiency, STAGES_COUNT)
+
+    input_torque = load_torque / (total_ratio * total_efficiency)
+
+    # -------------------------
+    # GEOMETRIC BACKLASH (base stage)
+    # -------------------------
     d_sun = (MODULE_MM * SUN_TEETH_COUNT) / math.cos(HELIX_ANGLE_RAD)
     d_ring = (MODULE_MM * RING_TEETH_COUNT) / math.cos(HELIX_ANGLE_RAD)
     d_equiv = d_sun + d_ring
-    
-    stage_geo_backlash_rad = (4 * GEAR_BACKLASH_MM) / (d_equiv * math.cos(PRESSURE_ANGLE_RADIANS))
 
-    # TOTALS
-    total_backlash_rad = 0.0
-    # Combine components for a single stage
-    total_stage_lost_motion = stage_geo_backlash_rad 
+    stage_geo_backlash = (4 * GEAR_BACKLASH_MM) / (d_equiv * math.cos(PRESSURE_ANGLE_RADIANS))
 
-    for i in range(1, STAGES_COUNT + 1):
-        stages_after = STAGES_COUNT - i
-        reflected = total_stage_lost_motion / math.pow(GEAR_RATIO, stages_after)
-        total_backlash_rad += reflected
+    # -------------------------
+    # ELASTIC COMPLIANCE BACKLASH
+    # -------------------------
+    total_elastic_angle = 0.0
+    total_geo_angle = 0.0
+
+    current_torque = input_torque
+
+    stages = build_stages(load_weight_kg, efficiency)
+
+    for i, stage in enumerate(stages):
+
+        # ---- stage stiffness ----
+        K_stage = compute_stage_stiffness(stage)
+
+        if K_stage != float("inf") and K_stage > 0:
+            theta_elastic = current_torque / K_stage
+        else:
+            theta_elastic = 0.0
+
+        # geometric backlash reflection through drivetrain
+        stages_after = STAGES_COUNT - i - 1
+        geo_reflected = stage_geo_backlash / math.pow(GEAR_RATIO, max(stages_after, 0))
+
+        total_geo_angle += geo_reflected
+        total_elastic_angle += theta_elastic
+
+        # propagate torque
+        current_torque = current_torque * GEAR_RATIO * efficiency
+
+    # -------------------------
+    # TOTAL EFFECTIVE LOST MOTION
+    # -------------------------
+    total_backlash_rad = total_geo_angle + total_elastic_angle
 
     total_deg = math.degrees(total_backlash_rad)
-    return total_deg, total_deg * 60, total_backlash_rad * LOAD_LEVER_ARM_MM
+    total_arcmin = total_deg * 60
+    linear_lost_motion = total_backlash_rad * LOAD_LEVER_ARM_MM
 
+    return total_deg, total_arcmin, linear_lost_motion
 
 if __name__ == "__main__":
     print("-" * 50)
