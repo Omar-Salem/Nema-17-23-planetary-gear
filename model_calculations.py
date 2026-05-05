@@ -62,6 +62,7 @@ SUN_PITCH_RADIUS_MM = (MODULE_MM * SUN_TEETH_COUNT) / (2 * math.cos(HELIX_ANGLE_
 # -------------------------
 PLANET_TEETH_COUNT = int((GEAR_RATIO - 2) * SUN_TEETH_COUNT / 2)
 PLANET_FACE_WIDTH_MM = 10
+PLANET_RADIUS_MM = (MODULE_MM * PLANET_TEETH_COUNT) / (2 * math.cos(HELIX_ANGLE_RAD))
 
 # -------------------------
 # PIN
@@ -485,6 +486,21 @@ class SupportedPin(PinBase):
             "deflection": self.get_deflection(),
             "force": self.F
         }
+        
+    def get_torsional_stiffness(self) -> float:
+        defl = self.get_deflection()
+
+        if defl == 0:
+            return float("inf")
+
+        # convert radial pin deflection → angular error at pitch radius
+        r = PLANET_RADIUS_MM 
+
+        theta = defl / r
+
+        T = self.F * r
+
+        return T / theta
 
 class CarrierHub(Component):
     def __init__(
