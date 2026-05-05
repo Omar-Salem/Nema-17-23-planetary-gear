@@ -139,6 +139,10 @@ class Component(ABC):
         if not fem_dict:
             return "-"
         return ", ".join([f"{k}: {v:g}" for k, v in fem_dict.items()])
+    
+    @abstractmethod
+    def get_stiffness(self) -> float:
+        pass
 
 
 class Gear(Component):
@@ -222,6 +226,17 @@ class Gear(Component):
         sigma_a = self._calculate_axial_bending_stress()
         tau = self._calculate_shear_stress()
         return math.sqrt(math.pow(sigma_b + sigma_a, 2) + 3 * math.pow(tau, 2))
+    
+    def get_stiffness(self) -> float:
+        # Effective tooth contact area
+        E = PLA_YOUNG_MODULUS_N_MM
+        
+        contact_area = self.face_width_mm * MODULE_MM
+        
+        # characteristic deformation length ~ module
+        L = MODULE_MM
+        
+        return (E * contact_area) / L
 
 
 class Ring(Gear):
@@ -253,14 +268,17 @@ class Ring(Gear):
         sigma_o = self._calculate_ovalization()
         return math.sqrt(math.pow(sigma_b + sigma_o, 2))
     
-    def get_radial_expansion_mm(self) -> float:
-        return (self.radial_force * self.pitch_radius_mm) / (
-            PLA_YOUNG_MODULUS_N_MM * self.thickness * self.face_width_mm
-        )
-
-    def get_angular_deflection_rad(self) -> float:
-        delta_r = self.get_radial_expansion_mm()
-        return delta_r / self.pitch_radius_mm
+    def get_stiffness(self) -> float:
+        E = PLA_YOUNG_MODULUS_N_MM
+        
+        t = self.thickness
+        b = self.face_width_mm
+        r = self.pitch_radius_mm
+        
+        if r == 0:
+            return 0
+        
+        return (E * t * b) / r
 
 
 class PinBase(Component):
@@ -349,6 +367,10 @@ class Pin(PinBase):
     def _tau(self) -> float:
         area = self._area(self.R)
         return 4 * self.F / (3 * area)
+    
+    def get_stiffness(self) -> float:
+        delta = self.get_deflection()
+        return self.F / delta if delta != 0 else float("inf")
 
 
 class SupportedPin(PinBase):
@@ -385,6 +407,10 @@ class SupportedPin(PinBase):
         n = STEEL_YOUNG_MODULUS_N_MM / PLA_YOUNG_MODULUS_N_MM
         I_trans = (I_outer - I_inner) + n * I_inner
         return n * M * self.r_bolt / I_trans
+    
+    def get_stiffness(self) -> float:
+        delta = self.get_deflection()
+        return self.F / delta if delta != 0 else float("inf")
 
 
 class CarrierHub(Component):
@@ -454,7 +480,7 @@ class CarrierHub(Component):
             "Total Axial Bolt Load (N)": round(bolt_tension * self.bolt_count, 2)
         }
         
-    def get_torsional_deflection_rad(self) -> float:
+    def _get_torsional_deflection_rad(self) -> float:
         # Approximate shaft as solid cylinder
         J = (math.pi / 2) * self.shaft_radius**4
         G = PLA_YOUNG_MODULUS_N_MM / (2 * (1 + PLA_POISSONS_RATIO))
@@ -463,6 +489,14 @@ class CarrierHub(Component):
         L_eff = self.shaft_radius * 2  
 
         return (self.load_torque_n_mm * L_eff) / (J * G)
+    
+    def get_stiffness(self) -> float:
+        theta = self._get_torsional_deflection_rad()
+        
+        if theta == 0:
+            return float("inf")
+        
+        return self.load_torque_n_mm / theta
 
 
 class Stage:
@@ -601,30 +635,10 @@ def calculate_system_backlash() -> Tuple[float, float, float]:
     
     stage_geo_backlash_rad = (4 * GEAR_BACKLASH_MM) / (d_equiv * math.cos(PRESSURE_ANGLE_RADIANS))
 
-    # 2. COMPLIANCE BACKLASH (Pin deflection under load)
-    load_torque = LOAD_WEIGHT_KG * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
-    total_ratio = math.pow(GEAR_RATIO, STAGES_COUNT)
-    
-    f_tangential = load_torque / (SUN_PITCH_RADIUS_MM * PLANETS_COUNT)
-    
-    # Instantiate a dummy pin to steal its deflection calculation
-    # Using the SupportedPin logic for the final stage
-    temp_pin = SupportedPin(f_tangential, PIN_DIAMETER_MM, PIN_LENGTH_MM, STEEL_MAX_SIGMA_ALLOWED, M3_BOLT_DIAMETER_MM)
-    pin_deflection_mm = temp_pin.get_deflection()
-    
-    # Convert linear pin deflection to angular stage deflection
-    # R_carrier is roughly (D_sun + D_planet)/2
-    r_carrier = (SUN_PITCH_RADIUS_MM + (PLANET_TEETH_COUNT * MODULE_MM / 2))
-    stage_compliance_rad = pin_deflection_mm / r_carrier
-
-    # 3. ASSEMBLY SLOP (Radial play in pin holes)
-    # Even a 0.05mm fit error creates angular "dead zone"
-    stage_slop_rad = ASSEMBLY_CLEARANCE_MM / r_carrier
-
     # TOTALS
     total_backlash_rad = 0.0
     # Combine components for a single stage
-    total_stage_lost_motion = stage_geo_backlash_rad + stage_compliance_rad + stage_slop_rad
+    total_stage_lost_motion = stage_geo_backlash_rad 
 
     for i in range(1, STAGES_COUNT + 1):
         stages_after = STAGES_COUNT - i
