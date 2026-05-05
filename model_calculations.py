@@ -481,17 +481,8 @@ class SupportedPin(PinBase):
         return n * M * self.r_bolt / I_trans
 
     def get_elastic_response(self) -> Dict[str, float]:
-        I_outer = self._inertia(self.R)
-        I_inner = self._inertia(self.r_bolt)
-
-        # effective flexural rigidity
-        EI = (PLA_YOUNG_MODULUS_N_MM * (I_outer - I_inner)
-              + STEEL_YOUNG_MODULUS_N_MM * I_inner)
-
-        deflection = self.F * math.pow(self.L, 3) / (8 * EI)
-
         return {
-            "deflection": deflection,
+            "deflection": self.get_deflection(),
             "force": self.F
         }
 
