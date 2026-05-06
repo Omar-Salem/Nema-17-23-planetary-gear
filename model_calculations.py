@@ -738,7 +738,7 @@ def find_max_safe_load() -> Tuple[float, float]:
 
     return max_load, final_torque
 
-def calculate_system_backlash(load_weight_kg: float = LOAD_WEIGHT_KG,
+def calculate_lost_motion(load_weight_kg: float = LOAD_WEIGHT_KG,
                               efficiency: float = GEAR_EFFICIENCY) -> Tuple[float, float, float]:
 
     # -------------------------
@@ -814,16 +814,15 @@ if __name__ == "__main__":
     print(f"Max Safe Load at {LOAD_LEVER_ARM_MM:5.2f} mm: {max_kg:5.2f} kg ({max_torque:4.0f} N·mm)\n")
     
   
-    # print(f"Gear backlash: {GEAR_BACKLASH_MM:5.2f} mm")  
-    # print(f"Module: {MODULE_MM:5.2f} mm")
-    # print(f"Sun teeth count: {SUN_TEETH_COUNT:2.0f}")
-    # print(f"Pressure angle: {PRESSURE_ANGLE_DEGREE:5.2f}°\n")
+    print(f"Gear backlash: {GEAR_BACKLASH_MM:5.2f} mm")  
+    print(f"Module: {MODULE_MM:5.2f} mm")
+    print(f"Sun teeth count: {SUN_TEETH_COUNT:2.0f}")
     
-    # print(f"Ring Diameter: {RING_DIAMETER_MM:5.2f} mm\n")
+    print(f"Ring diameter: {RING_DIAMETER_MM:5.2f} mm\n")
 
     print("-" * 50)
-    print("3. OUTPUT BACKLASH")
+    print("3. OUTPUT LOST MOTION")
     print("-" * 50)
-    b_deg, b_arcmin, lost_motion = calculate_system_backlash()
-    print(f"Angular Backlash: {b_deg:5.2f}° ({b_arcmin:5.2f}′)")
+    b_deg, b_arcmin, lost_motion = calculate_lost_motion()
+    print(f"Angular deflection: {b_deg:5.2f}° ({b_arcmin:5.2f}′)")
     print(f"Linear Lost Motion at {LOAD_LEVER_ARM_MM:5.2f} mm: {lost_motion:5.2f} mm\n")
