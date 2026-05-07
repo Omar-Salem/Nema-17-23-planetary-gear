@@ -814,12 +814,12 @@ if __name__ == "__main__":
     print(f"Max Safe Load at {LOAD_LEVER_ARM_MM:5.2f} mm: {max_kg:5.2f} kg ({max_torque:4.0f} N·mm)\n")
     
   
-    print(f"Gear backlash: {GEAR_BACKLASH_MM:5.2f} mm")  
-    print(f"Module: {MODULE_MM:5.2f} mm")
-    print(f"Sun teeth count: {SUN_TEETH_COUNT:2.0f}")
-    print(f"Stiffness: {PLA_YOUNG_MODULUS_N_MM:.2e} MPa\n")
+    # print(f"Gear backlash: {GEAR_BACKLASH_MM:5.2f} mm")  
+    # print(f"Module: {MODULE_MM:5.2f} mm")
+    # print(f"Sun teeth count: {SUN_TEETH_COUNT:2.0f}")
+    # print(f"Stiffness: {PLA_YOUNG_MODULUS_N_MM:.2e} MPa\n")
     
-    print(f"Ring diameter: {RING_DIAMETER_MM:5.2f} mm\n")
+    # print(f"Ring diameter: {RING_DIAMETER_MM:5.2f} mm\n")
 
     print("-" * 50)
     print("3. OUTPUT LOST MOTION")
