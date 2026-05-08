@@ -26,6 +26,7 @@ Gear ratio, backlash, and geometry can be adjusted through parameters.
 #### for Nema 23
 Substitute `91290A111` M3 hex bolts with `91290A221` M5
 
+The above is for `gear_ratio` 6, for different ratios you'll need different bearing sizes, refers to parameters in design files
 ### Design Notes
 
 * Spur gears are used for simplicity and efficiency
