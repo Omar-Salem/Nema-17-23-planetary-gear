@@ -12,6 +12,7 @@ Gear ratio, backlash, and geometry can be adjusted through parameters.
 [Fusion 360 Helical Gear Plus plugin](https://apps.autodesk.com/FUSION/en/Detail/Index?id=1259509007239787473&appLang=en&os=Mac)
 
 ### Parts List
+#### for Nema 17
 * M3 heat inserts 
     * (L5 $\times$ 4.2mm OD) $\times$ 15
 * M3 hex bolts
@@ -22,6 +23,8 @@ Gear ratio, backlash, and geometry can be adjusted through parameters.
     * 4668K269 (35mm $\times$ 47mm $\times$ 7mm) $\times$ 1
     * 2349K726 (12mm $\times$ 21mm $\times$ 5mm) $\times$ 2
     * 4668K225 (5mm $\times$ 11mm $\times$ 5mm) $\times$ 6
+#### for Nema 23
+Substitute `91290A111` M3 hex bolts with `91290A221` M5
 
 ### Design Notes
 
