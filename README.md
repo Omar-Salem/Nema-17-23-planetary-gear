@@ -26,13 +26,14 @@ Gear ratio, backlash, and geometry can be adjusted through parameters.
 #### for Nema 23
 Substitute `91290A111` M3 hex bolts with `91290A221` M5
 
-The above is for `gear_ratio` 6, for different ratios you'll need different bearing sizes, refers to parameters in design files
+The above is for `gear_ratio` **6**, for different ratios you'll need different bearing sizes, refers to parameters in design files
 ### Design Notes
 
 * Spur gears are used for simplicity and efficiency
 * Sun gear is reused across configurations
 * Three planets provide a balance between load sharing and complexity
 * Geometry is driven by parameters (module, teeth count, bearing sizes)
+* Single sided carrier
 
 ### Important Limitation
 Parameters are not global across files.
@@ -48,8 +49,8 @@ This violates DRY principle, instead, global params should be used.
 The gearbox is built in three stages:
 
 * Generate base gears (sun, planet, ring)
-* Modify components (add bearings, mounts, clearances)
-* Assemble stages (carrier + gears)
+* Modify components 
+* Assemble stages 
 
 ### Generate Gears
 
@@ -58,10 +59,6 @@ Create a new project and import the .f3d files
 ![](assets/uploaded.png)
 
 Open `GearGenerator`
-
-Have a look at the params
-
-![](assets/gear%20generator%20params.png)
 
 Start creating the sun gear, open `Helical Gear+`
 
@@ -91,7 +88,7 @@ Export ring gear as `Ring` to your project
 
 ![](assets/export%20ring.png)
 
-In the same manner, export planet gear as `PlanetTemp` and sun gear as `SunTemp`
+Export planet gear as `PlanetTemp` and sun gear as `SunTemp`
 
 Close current design without saving
 
@@ -102,9 +99,6 @@ Open `SunModifier`
 
 ![](assets/open%20Sun.png)
 
-Check its params as well
-
-![](assets/sun%20params.png)
 
 Insert the `SunTemp` component
 
@@ -259,9 +253,9 @@ Combine all as new component, export it to project as `SecondStage`
 
 [Autodesk Fusion: Make supports like Slant 3D](https://www.youtube.com/watch?v=sn2u949g7dM)
 
-Print 6 `Planet`s
+6 `Planet`s
 
-Print 2 `SunSpacer`s (_1 per stage_)
+2 `SunSpacer`s (_1 per stage_)
 
 
 ![](assets/plate_1.png)
