@@ -710,7 +710,7 @@ def display_stage_results(load_weight_kg: float, efficiency: float) -> None:
         print(f"Stage {stage.index} passed stress check ✅.\n")
 
 
-@deprecated("Use find_max_functional_load() instead.")
+@deprecated("Ignores deflection constraints. Use find_max_functional_load() instead.")
 def find_max_safe_load() -> Tuple[float, float]:
     step = 0.1  # kg resolution
     max_load = 0.0
