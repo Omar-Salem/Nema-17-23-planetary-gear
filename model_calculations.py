@@ -834,11 +834,11 @@ if __name__ == "__main__":
     display_stage_results(LOAD_WEIGHT_KG, GEAR_EFFICIENCY)
 
     print("-" * 50)
-    print("2. MAXIMUM SAFE LOAD CAPACITY")
+    print("2. MAXIMUM Functional CAPACITY")
     print("-" * 50)
     # max_kg, max_torque = find_max_safe_load()
     max_kg, max_torque = find_max_functional_load()
-    print(f"Max Safe Load at {LOAD_LEVER_ARM_MM:5.2f} mm: {max_kg:5.2f} kg ({max_torque:4.0f} N·mm)\n")
+    print(f"Max Functional Load at {LOAD_LEVER_ARM_MM:5.2f} mm: {max_kg:5.2f} kg ({max_torque:4.0f} N·mm)\n")
     
   
     # print(f"Gear backlash: {GEAR_BACKLASH_MM:5.2f} mm")  
