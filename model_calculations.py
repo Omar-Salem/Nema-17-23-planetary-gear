@@ -1,6 +1,7 @@
 import math
 from abc import ABC, abstractmethod
 from typing import Dict, List, Tuple
+from warnings import deprecated
 
 # -------------------------
 # ASSUMPTIONS
@@ -14,6 +15,7 @@ LOAD_SHARING_FACTOR = 1.0
 # -------------------------
 GRAVITY_METER_SEC_SEC = 9.81
 SAFETY_FACTOR = 3
+MAX_ALLOWABLE_DEFLECTION_DEG = 2.0
 
 
 # -------------------------
@@ -708,6 +710,7 @@ def display_stage_results(load_weight_kg: float, efficiency: float) -> None:
         print(f"Stage {stage.index} passed stress check ✅.\n")
 
 
+@deprecated("Use find_max_functional_load() instead.")
 def find_max_safe_load() -> Tuple[float, float]:
     step = 0.1  # kg resolution
     max_load = 0.0
@@ -737,6 +740,29 @@ def find_max_safe_load() -> Tuple[float, float]:
     final_torque = max_load * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
 
     return max_load, final_torque
+
+def find_max_functional_load()-> tuple[float, float]:
+    step = 0.1 
+    load = step
+    max_load = 0.0
+
+    while True:
+        # Check 1: Structural Stress
+        utilization = evaluate_system_utilization(load, GEAR_EFFICIENCY)
+        
+        # Check 2: Functional Deflection
+        b_deg, _, _ = calculate_lost_motion(load)
+
+        # The model "fails" if either threshold is crossed
+        if utilization >= 1.0 or b_deg > MAX_ALLOWABLE_DEFLECTION_DEG:
+            break
+            
+        # (Rest of your motor torque checks...)
+        max_load = load
+        load += step
+
+    final_torque = max_load * GRAVITY_METER_SEC_SEC * LOAD_LEVER_ARM_MM
+    return max_load,final_torque
 
 def calculate_lost_motion(load_weight_kg: float = LOAD_WEIGHT_KG,
                               efficiency: float = GEAR_EFFICIENCY) -> Tuple[float, float, float]:
@@ -810,7 +836,8 @@ if __name__ == "__main__":
     print("-" * 50)
     print("2. MAXIMUM SAFE LOAD CAPACITY")
     print("-" * 50)
-    max_kg, max_torque = find_max_safe_load()
+    # max_kg, max_torque = find_max_safe_load()
+    max_kg, max_torque = find_max_functional_load()
     print(f"Max Safe Load at {LOAD_LEVER_ARM_MM:5.2f} mm: {max_kg:5.2f} kg ({max_torque:4.0f} N·mm)\n")
     
   
