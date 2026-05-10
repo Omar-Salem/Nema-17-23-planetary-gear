@@ -757,7 +757,6 @@ def find_max_functional_load()-> tuple[float, float]:
         if utilization >= 1.0 or b_deg > MAX_ALLOWABLE_DEFLECTION_DEG:
             break
             
-        # (Rest of your motor torque checks...)
         max_load = load
         load += step
 
