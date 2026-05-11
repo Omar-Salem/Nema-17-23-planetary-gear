@@ -242,7 +242,7 @@ Combine all as new component, export it to project as `SecondStage`
 * Ring
 * Planet
 * MotorInput
-* SunSpacer
+* SunSpacer (if Nema 17)
 
 ❗ Make sure you print `SecondStage` at 45&deg; with 100% infill as it takes the most stress
 
@@ -253,12 +253,15 @@ Combine all as new component, export it to project as `SecondStage`
 
 [Autodesk Fusion: Make supports like Slant 3D](https://www.youtube.com/watch?v=sn2u949g7dM)
 
-6 `Planet`s
 
-2 `SunSpacer`s (_1 per stage_)
 
 
 ![](assets/plate_1.png)
+
+6 `Planet`s
+
+2 `SunSpacer`s (_1 per stage_) (if Nema 17)
+
 ![](assets/plate_2.png)
 
 ### Assembly
