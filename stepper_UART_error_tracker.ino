@@ -21,7 +21,7 @@ const double FULL_CIRCLE_RADIANS = 6.28318530718;
 
 const double REDUCTION = 36.0;
 
-const int RPM = 120;
+const int RPM = 30;
 
 const double RADIANS_TO_STEPS =
   FULL_CIRCLE_STEPS / FULL_CIRCLE_RADIANS;
@@ -36,7 +36,7 @@ const double STEPS_PER_SECOND =
 // SWEEP PARAMETERS
 // --------------------
 
-const double SWEEP_ANGLE_RAD = 1.5;
+const double SWEEP_ANGLE_RAD = 1.5708;
 
 long targetA;
 long targetB;
@@ -158,7 +158,7 @@ void requestMotorError() {
 
     float angle =
       raw * 360.0 / 65536.0;
-
+    if (abs(angle) > 10) { continue; }
     if (abs(angle) > maxErrorInDegrees) {
       maxErrorInDegrees = abs(angle);
     }
