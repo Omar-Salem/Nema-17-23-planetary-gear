@@ -6,7 +6,7 @@ Gear ratio, backlash, and geometry can be adjusted through parameters.
 
 ![](assets/fully%20assembled.png)
 
-[![Youtube video](https://img.youtube.com/vi/zlH5y5JG1OU/0.jpg)](https://www.youtube.com/watch?v=zlH5y5JG1OU)
+[![Youtube video](https://img.youtube.com/vi/zlH5y5JG1OU/maxresdefault.jpg)](https://www.youtube.com/watch?v=zlH5y5JG1OU)
 
 
 
